@@ -4,9 +4,13 @@
     "dev": "bun run --hot src/index.ts"
   },
   "dependencies": {
+    "firebase-admin": "^12.5.0",
     "hono": "^4.6.2"
   },
   "devDependencies": {
     "@types/bun": "latest"
-  }
+  },
+  "trustedDependencies": [
+    "protobufjs"
+  ]
 }

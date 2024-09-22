@@ -1,13 +1,14 @@
 'use client';
 
 import { loginWithGoogle, logout } from '@/lib/firebase';
-import { useAuthState } from '@/lib/firebase/hooks/useAuthState';
+import { userStore } from '@/lib/stores/user-store';
 import { Button } from '@mantine/core';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { useSnapshot } from 'valtio';
 
 export default function Home() {
-  const user = useAuthState();
+  const { user } = useSnapshot(userStore);
 
   const login = () => {
     loginWithGoogle().then(() => {

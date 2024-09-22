@@ -24,7 +24,7 @@ export const rtdb = getDatabase(app);
 
 if (process.env.NODE_ENV === 'development') {
   console.log('Firebase app initialized:', app);
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectDatabaseEmulator(rtdb, '127.0.0.1', 9000);
 }
 

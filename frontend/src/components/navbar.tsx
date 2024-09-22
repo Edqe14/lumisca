@@ -1,25 +1,27 @@
 'use client';
 
-import { loginWithGoogle } from '@/lib/firebase';
-import { useAuthState } from '@/lib/firebase/hooks/useAuthState';
-import { Button } from '@mantine/core';
+import { userStore } from '@/lib/stores/user-store';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { useSnapshot } from 'valtio';
 
 export const Navbar = () => {
-  const { user } = useAuthState();
-
-  const login = () => {
-    loginWithGoogle().then(() => {
-      redirect('/dashboard');
-    });
-  };
+  const { profile } = useSnapshot(userStore);
 
   return (
-    <nav className="h-12 flex px-12 items-center justify-between border-b">
+    <nav className="h-12 flex px-4 sm:px-12 items-center justify-between border-b drop-shadow-sm bg-white">
       <Link href="/app">
         <h1 className="vibrant font-semibold tracking-tighter">Lumisca</h1>
       </Link>
+
+      {profile && (
+        <img
+          className="h-8 w-8 rounded-full"
+          src={
+            profile.profilePict ||
+            `https://api.dicebear.com/9.x/glass/svg?seed=${profile.name}`
+          }
+        />
+      )}
     </nav>
   );
 };

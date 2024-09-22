@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
 import { Navbar } from '@/components/navbar';
+import { ModalsProvider } from '@mantine/modals';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -25,9 +26,17 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} min-h-svh flex flex-col`}>
         <MantineProvider>
-          <Navbar />
+          <ModalsProvider
+            modalProps={{
+              classNames: {
+                title: 'text-zinc-700 font-semibold',
+              },
+            }}
+          >
+            <Navbar />
 
-          {children}
+            {children}
+          </ModalsProvider>
         </MantineProvider>
       </body>
     </html>
