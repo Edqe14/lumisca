@@ -29,7 +29,7 @@ export type Session = {
 export type SessionRT = {
   id: string;
   status: 'active' | 'break' | 'long-break' | 'finished';
-  timer: number;
+  timer: number; // seconds
 
   members: SessionMemberRT[];
 };
