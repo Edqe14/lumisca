@@ -1,18 +1,17 @@
-'use client';
-
-import { loginWithGoogle, logout } from '@/lib/firebase';
+import { loginWithGoogle } from '@/lib/firebase';
 import { userStore } from '@/lib/stores/user-store';
 import { Button } from '@mantine/core';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSnapshot } from 'valtio';
 
 export default function Home() {
+  const router = useRouter();
   const { user } = useSnapshot(userStore);
 
-  const login = () => {
+  const login = async () => {
     loginWithGoogle().then(() => {
-      redirect('/dashboard');
+      router.push('/app');
     });
   };
 

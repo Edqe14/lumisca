@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  profilePict?: string;
+  profilePict?: string | null;
 
   // gamification
   level: number;

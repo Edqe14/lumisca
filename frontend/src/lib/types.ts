@@ -1,4 +1,4 @@
-export type Profile = {
+export interface Profile {
   id: string;
   name: string;
   email: string;
@@ -11,32 +11,38 @@ export type Profile = {
 
   createdAt: string;
   updatedAt: string;
-};
+}
 
 // store
-export type Session = {
+export interface Session {
   id: string;
   name: string;
   status: 'active' | 'break' | 'long-break' | 'finished';
   visibility: 'public' | 'private';
   creator: string;
+  focusedCount: number;
 
   createdAt: string;
   updatedAt: string;
-};
+  finishedAt: string | null;
+}
 
 // RTDB
-export type SessionRT = {
+export interface SessionRT {
   id: string;
   status: 'active' | 'break' | 'long-break' | 'finished';
   timer: number; // seconds
 
   members: SessionMemberRT[];
-};
+}
 
-export type SessionMemberRT = {
+export interface SessionMemberRT {
   id: string;
   name: string;
   profilePict: string;
+
   isSpeaking: boolean;
-};
+  isMuted: boolean;
+  isDeafened: boolean;
+  isConnected: boolean;
+}

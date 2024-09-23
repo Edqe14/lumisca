@@ -6,6 +6,7 @@ import { fetcher } from '../utils';
 import { Profile } from '../types';
 
 export const userStore = proxy({
+  loading: true,
   user: null as User | null,
   token: null as string | null,
   profile: null as Profile | null,
@@ -39,6 +40,8 @@ const autoFetchToken = () => {
 };
 
 onAuthStateChanged(auth, async (user) => {
+  userStore.loading = true;
+
   if (user) {
     userStore.user = user;
     userStore.token = await user.getIdToken(true);
@@ -59,4 +62,6 @@ onAuthStateChanged(auth, async (user) => {
 
     unsubscribeFetchToken();
   }
+
+  userStore.loading = false;
 });

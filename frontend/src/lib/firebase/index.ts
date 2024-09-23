@@ -1,9 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import { connectDatabaseEmulator, getDatabase } from 'firebase/database';
 import {
+  browserLocalPersistence,
   connectAuthEmulator,
   getAuth,
   GoogleAuthProvider,
+  setPersistence,
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
@@ -21,6 +23,8 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const rtdb = getDatabase(app);
+
+setPersistence(auth, browserLocalPersistence);
 
 if (process.env.NODE_ENV === 'development') {
   console.log('Firebase app initialized:', app);

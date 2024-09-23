@@ -1,1 +1,5 @@
-{ "dependencies": { "valtio": "^2.0.0" } }
+{
+  "scripts": {
+    "emu:start": "firebase emulators:start --import .firebase-data --export-on-exit .firebase-data"
+  }
+}

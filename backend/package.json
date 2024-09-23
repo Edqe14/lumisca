@@ -1,14 +1,19 @@
 {
   "name": "backend",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
     "firebase-admin": "^12.5.0",
-    "hono": "^4.6.2"
+    "hono": "^4.6.2",
+    "jose": "^5.9.3",
+    "lodash-es": "^4.17.21",
+    "typed-emitter": "^2.1.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/lodash-es": "^4.17.12"
   },
   "trustedDependencies": [
     "protobufjs"

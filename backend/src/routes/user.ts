@@ -19,7 +19,7 @@ userRoute.get('/me', async (c) => {
       name:
         updatedUser.displayName ?? updatedUser.email?.split('@')[0] ?? 'Anon',
       email: c.user.email!,
-      profilePict: c.user.photoURL ?? null,
+      profilePict: c.user.photoURL || null,
       level: 1,
       experience: 0,
       points: 0,

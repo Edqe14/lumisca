@@ -2,6 +2,12 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "jsxImportSource": "hono/jsx",
+    "target": "ES2017", // or higher like ES2020, ESNext
+    "module": "ESNext", // ESNext is required for top-level await
+    "moduleResolution": "Node", // Optional, useful for node module resolution
+    "esModuleInterop": true, // Optional, for compatibility with commonJS
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
   }
 }
