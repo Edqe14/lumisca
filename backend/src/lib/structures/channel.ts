@@ -28,6 +28,15 @@ export class Channel {
     this.id = id;
   }
 
+  public async ensureRoom() {
+    // FIXME: skip room for now
+    // if (!this.isCreated) {
+    //   await this.createRoom();
+    // }
+
+    return this;
+  }
+
   public async createRoom() {
     const res = await fetch(`${BASE_URL}/rooms`, {
       method: 'POST',

@@ -1,8 +1,5 @@
-import { userStore } from '@/lib/stores/user-store';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/router';
-import { ReactNode, useEffect } from 'react';
-import { useSnapshot } from 'valtio';
+import { ReactNode } from 'react';
 
 export const Layout = ({
   children,
@@ -11,18 +8,6 @@ export const Layout = ({
   children: ReactNode;
   className?: string;
 }) => {
-  const router = useRouter();
-  const { profile, loading } = useSnapshot(userStore);
-
-  useEffect(() => {
-    if (!loading && !profile) {
-      router.push('/');
-    }
-  }, [loading, profile, router]);
-
-  if (loading) return null;
-  if (!profile) return null;
-
   return (
     <main
       className={cn(

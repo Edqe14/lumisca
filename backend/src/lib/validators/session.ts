@@ -21,13 +21,21 @@ export const sessionMemberRTState = z.object({
   isHandRaised: z.boolean(),
 });
 
+export const updateSessionStateValidator = sessionMemberRTState.omit({
+  id: true,
+});
+
 export const sessionValidator = z.object({
   id: z.string(),
   name: z.string(),
-  status: z.enum(['active', 'paused', 'break', 'long-break', 'finished']),
+  status: z.enum(['active', 'break', 'long-break', 'finished']),
+  timerState: z.enum(['running', 'paused', 'stopped']),
   visibility: z.enum(['public', 'private']),
   creator: z.string(),
-  focusedCount: z.number(),
+
+  activeCount: z.number(),
+  breakCount: z.number(),
+  longBreakCount: z.number(),
 
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -42,7 +50,14 @@ export const sessionRTValidator = sessionValidator
   .pick({
     id: true,
     status: true,
+    timerState: true,
     creator: true,
+
+    activeCount: true,
+    breakCount: true,
+    longBreakCount: true,
+
+    createdAt: true,
     deletedAt: true,
   })
   .extend({
@@ -55,3 +70,9 @@ export const sessionFactoryValidator = sessionValidator.pick({
   visibility: true,
   creator: true,
 });
+
+export type SessionData = z.infer<typeof sessionValidator>;
+export type SessionRTData = z.infer<typeof sessionRTValidator>;
+export type SessionMemberStateData = z.infer<
+  typeof updateSessionStateValidator
+>;

@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
-import { createSessionValidator } from '../lib/validators/session';
+import {
+  createSessionValidator,
+  updateSessionStateValidator,
+} from '../lib/validators/session';
 import { SessionFactory } from '../lib/structures/session';
 import { ZodError } from 'zod';
 
@@ -11,7 +14,10 @@ sessionRoute
       return c.json({ message: 'Unauthorized' }, 401);
     }
 
-    const session = await SessionFactory.getAll(c.user.uid);
+    const session = await SessionFactory.getAll(
+      c.user.id,
+      c.req.query('deleted') == '1'
+    );
 
     return c.json(session);
   })
@@ -25,7 +31,7 @@ sessionRoute
 
       const newSession = await SessionFactory.create({
         ...body,
-        creator: c.user.uid,
+        creator: c.user.id,
       });
 
       return c.json(newSession);
@@ -115,14 +121,16 @@ sessionIdRoute
       return c.json({ message: 'Session not found' }, 404);
     }
 
-    const token = session.channel.generateUserToken(
-      c.user.uid,
-      session.creator === c.user.uid
+    await session.channel.ensureRoom();
+
+    const token = await session.channel.generateUserToken(
+      c.user.id,
+      session.creator === c.user.id
     );
-    await session.addMember(c.user.uid, {
-      id: c.user.uid,
-      name: c.user.displayName ?? c.user.email?.split('@')?.[0] ?? 'Anon',
-      profilePict: c.user.photoURL ?? null,
+    await session.addMember(c.user.id, {
+      id: c.user.id,
+      name: c.user.name,
+      profilePict: c.user.profilePict ?? null,
     });
 
     return c.json({ message: 'Joined the session', token });
@@ -138,9 +146,33 @@ sessionIdRoute
       return c.json({ message: 'Session not found' }, 404);
     }
 
-    await session.removeMember(c.user.uid);
+    await session.removeMember(c.user.id);
 
     return c.json({ message: 'Left the session' });
+  })
+  .put('/updateState', async (c) => {
+    if (!c.user) {
+      return c.json({ message: 'Unauthorized' }, 401);
+    }
+
+    try {
+      const body = await updateSessionStateValidator.parseAsync(
+        await c.req.json()
+      );
+      const session = await SessionFactory.get(c.req.param('id'));
+
+      if (!session) {
+        return c.json({ message: 'Session not found' }, 404);
+      }
+
+      if (!(await session.updateMemberState(c.user.id, body))) {
+        return c.json({ message: 'Request cannot be fulfilled' }, 400);
+      }
+
+      return c.json({ message: 'State updated' });
+    } catch {
+      return c.json({ message: 'Invalid request body' }, 400);
+    }
   });
 
 sessionRoute.route('/', sessionIdRoute);

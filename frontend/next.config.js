@@ -1,4 +1,27 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {}
+const { config } = require('dotenv');
 
-module.exports = nextConfig
+config({
+  path: '.env.local',
+});
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL}/:path*`,
+      },
+    ];
+  },
+  pageExtensions: [
+    'page.tsx',
+    'page.ts',
+    'page.jsx',
+    'page.js',
+    'page.md',
+    'page.mdx',
+  ],
+};
+
+module.exports = nextConfig;

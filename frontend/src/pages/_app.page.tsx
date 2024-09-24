@@ -1,0 +1,52 @@
+import '@mantine/core/styles.css';
+import './globals.css';
+
+import { MantineProvider } from '@mantine/core';
+import { Navbar } from '@/components/navbar';
+import { ModalsProvider } from '@mantine/modals';
+import type { AppProps } from 'next/app';
+import { Inter } from 'next/font/google';
+import { SWRConfig } from 'swr';
+import Head from 'next/head';
+import { fetcher } from '@/lib/utils';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <>
+      <Head>
+        <title>Lumisca</title>
+      </Head>
+
+      <main
+        className={`${inter.className} min-h-svh flex flex-col`}
+        suppressHydrationWarning
+      >
+        <SWRConfig
+          value={{
+            fetcher: (resource, init) =>
+              fetcher({
+                ...init,
+                url: resource,
+              }).then((r) => r.data),
+          }}
+        >
+          <MantineProvider>
+            <ModalsProvider
+              modalProps={{
+                classNames: {
+                  title: 'text-zinc-700 font-semibold',
+                },
+              }}
+            >
+              <Navbar />
+
+              <Component {...pageProps} />
+            </ModalsProvider>
+          </MantineProvider>
+        </SWRConfig>
+      </main>
+    </>
+  );
+}

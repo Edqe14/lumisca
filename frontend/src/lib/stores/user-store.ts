@@ -1,5 +1,5 @@
 import { proxy } from 'valtio';
-import { auth } from '../firebase';
+import { auth, persistence } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { noop } from '@mantine/core';
 import { fetcher } from '../utils';
@@ -40,6 +40,8 @@ const autoFetchToken = () => {
 };
 
 onAuthStateChanged(auth, async (user) => {
+  await persistence;
+
   userStore.loading = true;
 
   if (user) {

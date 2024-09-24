@@ -1,8 +1,25 @@
-export interface User {
+import { EventEmitter } from 'node:events';
+import type TypedEmitter from 'typed-emitter';
+import { z } from 'zod';
+import { createUserValidator, userValidator } from '../validators/user';
+import type { DocumentReference } from 'firebase-admin/firestore';
+import { db } from '../firebase';
+import { BaseStructure, BaseStructureEvents } from './base';
+
+export type UserData = z.infer<typeof userValidator>;
+export type CreateUserData = z.infer<typeof createUserValidator>;
+export type UserEvents = BaseStructureEvents & {};
+
+export const userCache = new Map<string, User>();
+
+export class User
+  extends (EventEmitter as new () => TypedEmitter<UserEvents>)
+  implements BaseStructure, UserData
+{
   id: string;
   name: string;
   email: string;
-  profilePict?: string | null;
+  profilePict: string | null;
 
   // gamification
   level: number;
@@ -13,4 +30,125 @@ export interface User {
 
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
+
+  public constructor(data: UserData, public ref: DocumentReference) {
+    super();
+
+    this.id = data.id;
+    this.name = data.name;
+    this.email = data.email;
+    this.profilePict = data.profilePict;
+
+    this.level = data.level;
+    this.experience = data.experience;
+    this.points = data.points;
+    this.achivements = data.achivements;
+    this.sessionsFinished = data.sessionsFinished;
+
+    this.createdAt = data.createdAt;
+    this.updatedAt = data.updatedAt;
+    this.deletedAt = data.deletedAt;
+  }
+
+  async pull() {
+    const doc = await this.ref.get();
+
+    if (!doc.exists) {
+      return false;
+    }
+
+    const data = doc.data() as UserData;
+
+    Object.assign(this, data);
+
+    this.emit('pull');
+
+    return true;
+  }
+
+  async sync() {
+    const json = this.toJSON();
+    await this.ref.set(json);
+
+    this.emit('sync');
+
+    return true;
+  }
+
+  async delete() {
+    if (this.deletedAt) return;
+
+    this.deletedAt = new Date().toISOString();
+
+    await this.sync();
+
+    this.emit('delete');
+  }
+
+  toJSON() {
+    return {
+      id: this.id,
+      name: this.name,
+      email: this.email,
+      profilePict: this.profilePict,
+
+      level: this.level,
+      experience: this.experience,
+      points: this.points,
+      achivements: this.achivements,
+      sessionsFinished: this.sessionsFinished,
+
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      deletedAt: this.deletedAt,
+    } satisfies UserData;
+  }
+}
+
+export class UserFactory {
+  public static ref = db.collection('users');
+
+  public static async get(id: string) {
+    if (userCache.has(id)) {
+      return userCache.get(id)!;
+    }
+
+    const doc = await this.ref.doc(id).get();
+    if (!doc.exists) {
+      return null;
+    }
+
+    const data = doc.data() as UserData;
+    const user = new User(data, doc.ref);
+
+    userCache.set(id, user);
+
+    return user;
+  }
+
+  public static async create(data: CreateUserData) {
+    const fullData: UserData = {
+      ...data,
+      level: 1,
+      experience: 0,
+      points: 0,
+      achivements: [],
+      sessionsFinished: 0,
+
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    };
+
+    const doc = this.ref.doc(data.id);
+    const user = new User(fullData, doc);
+    await user.sync();
+
+    user.emit('created');
+
+    userCache.set(doc.id, user);
+
+    return user;
+  }
 }

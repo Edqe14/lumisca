@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
-import type { UserRecord } from 'firebase-admin/auth';
 import { authenticated } from './lib/middleware/authenticated';
 import { userRoute } from './routes/user';
 import { sessionRoute } from './routes/session';
+import type { User } from './lib/structures/user';
 
 const app = new Hono();
 
@@ -24,7 +24,7 @@ app.route('/api', api);
 
 declare module 'hono' {
   interface Context {
-    user?: UserRecord;
+    user?: User;
   }
 }
 

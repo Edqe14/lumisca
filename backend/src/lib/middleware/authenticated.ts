@@ -1,8 +1,7 @@
 import { MiddlewareHandler } from 'hono';
 import { auth } from '../firebase';
-import { UserRecord } from 'firebase-admin/auth';
-
-export const userCache = new Map<string, UserRecord>();
+import type { UserRecord } from 'firebase-admin/auth';
+import { userCache, UserFactory } from '../structures/user';
 
 export const authenticated: MiddlewareHandler = async (c, next) => {
   const token = c.req.header('Authorization')?.split(' ')?.[1];
@@ -14,10 +13,19 @@ export const authenticated: MiddlewareHandler = async (c, next) => {
   try {
     const decoded = await auth.verifyIdToken(token, true);
 
-    c.user = userCache.get(decoded.uid) ?? (await auth.getUser(decoded.uid));
+    c.user =
+      userCache.get(decoded.uid) ??
+      (await UserFactory.get(decoded.uid)) ??
+      (await UserFactory.create({
+        id: decoded.uid,
+        email: decoded.email!,
+        name: decoded.name ?? decoded.email?.split('@')[0] ?? 'Anon',
+        profilePict: decoded.picture ?? null,
+      }));
 
     return next();
   } catch (err) {
+    console.log(err);
     return c.json({ message: 'Unauthorized' }, 401);
   }
 };

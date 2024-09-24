@@ -1,45 +1,51 @@
 import { z } from 'zod';
 import {
+  SessionData,
   sessionFactoryValidator,
   sessionMember,
+  SessionMemberStateData,
+  SessionRTData,
   sessionRTValidator,
   sessionValidator,
+  updateSessionStateValidator,
 } from '../validators/session';
 import { db, rtdb } from '../firebase';
 import { EventEmitter } from 'node:events';
-import TypedEmitter from 'typed-emitter';
+import type TypedEmitter from 'typed-emitter';
 import { Filter, type DocumentReference } from 'firebase-admin/firestore';
 import type { Reference } from 'firebase-admin/database';
 import { Channel } from './channel';
-
-type SessionData = z.infer<typeof sessionValidator>;
-type SessionRTData = z.infer<typeof sessionRTValidator>;
+import { Timers } from './timer';
+import { BaseStructure, BaseStructureEvents } from './base';
 
 export const sessionCache = new Map<string, Session>();
-export type SessionEvents = {
-  pull: () => void;
-  sync: () => void;
-  delete: () => void;
-  created: () => void;
+export type SessionEvents = BaseStructureEvents & {
   memberAdded: (memberId: string) => void;
   memberRemoved: (memberId: string) => void;
+  updateMemberState: (id: string, state: SessionMemberStateData) => void;
 };
 
-export const timerCache = new Map<string, NodeJS.Timer>();
+export class Session
+  extends (EventEmitter as new () => TypedEmitter<SessionEvents>)
+  implements BaseStructure, SessionData
+{
+  public static STATUS_ACTIVE = 'active' as const;
+  public static STATUS_BREAK = 'break' as const;
+  public static STATUS_LONG_BREAK = 'long_break' as const;
+  public static STATUS_FINISHED = 'finished' as const;
 
-/* TODO:
-- grace period when no member (join/leave), then will get automatically marked as finished
-*/
-
-export class Session extends (EventEmitter as new () => TypedEmitter<SessionEvents>) {
   id: string;
   name: string;
   status: SessionData['status'];
+  timerState: SessionData['timerState'];
   visibility: SessionData['visibility'];
   creator: string;
-  focusedCount: number;
   members: SessionData['members'];
   memberCount: number;
+
+  activeCount: number;
+  breakCount: number;
+  longBreakCount: number;
 
   createdAt: string;
   updatedAt: string;
@@ -62,11 +68,15 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
     this.id = data.id;
     this.name = data.name;
     this.status = data.status;
+    this.timerState = data.timerState;
     this.visibility = data.visibility;
     this.creator = data.creator;
     this.members = data.members;
-    this.focusedCount = data.focusedCount;
     this.memberCount = data.memberCount;
+
+    this.activeCount = data.activeCount;
+    this.breakCount = data.breakCount;
+    this.longBreakCount = data.longBreakCount;
 
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
@@ -82,7 +92,7 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
   private primeSelfDestruct() {
     this.autoDestructTimeout = setTimeout(async () => {
       this.delete();
-    });
+    }, Timers.ONE_MINUTE * 5);
   }
 
   private defuseSelfDestruct() {
@@ -96,9 +106,7 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
     this.on('created', async () => {
       if (this.deletedAt) return;
 
-      await this.channel.createRoom();
-
-      this.primeSelfDestruct();
+      // this.primeSelfDestruct();
     });
 
     const memberStates = this.rtdbRef.child('memberStates');
@@ -108,17 +116,13 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
         snapshot.val() as SessionRTData['memberStates'][string];
 
       if (!memberState.isConnected) {
-        timerCache.set(
+        Timers.queue(
           memberId,
-          setTimeout(() => {
-            this.removeMember(memberId);
-          }, 1000 * 60 * 5)
+          () => this.removeMember(memberId),
+          1000 * 60 * 5
         );
       } else {
-        if (timerCache.has(memberId)) {
-          clearTimeout(timerCache.get(memberId)!);
-          timerCache.delete(memberId);
-        }
+        Timers.dequeue(memberId);
       }
     });
 
@@ -194,12 +198,24 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
     this.emit('memberRemoved', memberId);
   }
 
+  public async updateMemberState(id: string, state: SessionMemberStateData) {
+    if (!this.realtime) return false;
+    if (!this.realtime.memberStates[id]) return false;
+
+    Object.assign(this.realtime.memberStates[id], state);
+
+    await this.sync();
+    this.emit('updateMemberState', id, state);
+
+    return this.realtime.memberStates[id];
+  }
+
   public async pull() {
     const doc = await this.ref.get();
     const rtdbDoc = await this.rtdbRef.get();
 
     if (!doc.exists || !rtdbDoc.exists()) {
-      return null;
+      return false;
     }
 
     const data = doc.data() as SessionData;
@@ -211,25 +227,37 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
 
     this.emit('pull');
 
-    return this;
+    return true;
   }
 
   public async sync() {
     const json = this.toJSON();
-    const res = await Promise.all([
-      this.ref.set(json),
-      this.rtdbRef.set(this.realtime),
-    ]);
+    const tasks: Promise<unknown>[] = [this.ref.set(json)];
+
+    if (this.realtime) {
+      Object.assign(this.realtime, {
+        activeCount: this.activeCount,
+        breakCount: this.breakCount,
+        longBreakCount: this.longBreakCount,
+        status: this.status,
+        timerState: this.timerState,
+      } satisfies Partial<SessionRTData>);
+
+      tasks.push(this.rtdbRef.set(this.realtime));
+    }
+
+    await Promise.all(tasks);
 
     this.emit('sync');
 
-    return res;
+    return true;
   }
 
   public async delete() {
     if (this.deletedAt) return;
 
     this.deletedAt = new Date().toISOString();
+    this.status = Session.STATUS_FINISHED;
 
     if (this.realtime) {
       this.realtime.deletedAt = this.deletedAt;
@@ -245,16 +273,19 @@ export class Session extends (EventEmitter as new () => TypedEmitter<SessionEven
       id: this.id,
       name: this.name,
       status: this.status,
+      timerState: this.timerState,
       visibility: this.visibility,
       creator: this.creator,
-      focusedCount: this.focusedCount,
+      activeCount: this.activeCount,
+      breakCount: this.breakCount,
+      longBreakCount: this.longBreakCount,
       members: this.members,
       memberCount: this.memberCount,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       finishedAt: this.finishedAt,
       deletedAt: this.deletedAt,
-    };
+    } satisfies SessionData;
   }
 }
 
@@ -262,7 +293,7 @@ export class SessionFactory {
   public static collection = db.collection('sessions');
   public static ref = rtdb.ref('sessions');
 
-  public static async getAll(userId: string) {
+  public static async getAll(userId: string, onlyDeleted = false) {
     const snapshot = await this.collection
       .where(
         Filter.or(
@@ -270,7 +301,7 @@ export class SessionFactory {
           Filter.where(`members.${userId}.id`, '==', userId)
         )
       )
-      .where('deletedAt', '==', null)
+      .where('deletedAt', onlyDeleted ? '!=' : '==', null)
       .orderBy('createdAt', 'desc')
       .get();
 
@@ -348,9 +379,14 @@ export class SessionFactory {
       id: uniqueId,
       name,
       status: 'active',
+      timerState: 'stopped',
       visibility,
       creator,
-      focusedCount: 0,
+
+      activeCount: 0,
+      breakCount: 0,
+      longBreakCount: 0,
+
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       deletedAt: null,
@@ -361,11 +397,18 @@ export class SessionFactory {
 
     const rtData: SessionRTData = {
       creator,
-      id: uniqueId,
-      status: 'active',
+      id: sessionData.id,
+      status: sessionData.status,
+      timerState: sessionData.timerState,
+      createdAt: sessionData.createdAt,
+      deletedAt: sessionData.deletedAt,
+
+      activeCount: sessionData.activeCount,
+      breakCount: sessionData.breakCount,
+      longBreakCount: sessionData.longBreakCount,
+
       memberStates: {},
       nextSectionEndAt: null,
-      deletedAt: null,
     };
 
     const session = new Session(
