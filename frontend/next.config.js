@@ -14,6 +14,11 @@ const nextConfig = {
       },
     ];
   },
+  webpack(config) {
+    config.resolve.symlinks = false;
+
+    return config;
+  },
   pageExtensions: [
     'page.tsx',
     'page.ts',

@@ -1,4 +1,5 @@
 import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
 import './globals.css';
 
 import { MantineProvider } from '@mantine/core';
@@ -9,6 +10,7 @@ import { Inter } from 'next/font/google';
 import { SWRConfig } from 'swr';
 import Head from 'next/head';
 import { fetcher } from '@/lib/utils';
+import { Notifications } from '@mantine/notifications';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -40,6 +42,7 @@ export default function App({ Component, pageProps }: AppProps) {
                 },
               }}
             >
+              <Notifications />
               <Navbar />
 
               <Component {...pageProps} />

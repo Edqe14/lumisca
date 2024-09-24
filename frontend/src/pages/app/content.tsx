@@ -11,21 +11,55 @@ import {
 import { useSnapshot } from 'valtio';
 import { IconPlus } from '@tabler/icons-react';
 import { modals } from '@mantine/modals';
-import { useForm } from '@mantine/form';
+import { useForm, zodResolver } from '@mantine/form';
 import useSWR from 'swr';
-import { SessionData } from '@/lib/validators/session';
+import { createSessionValidator, SessionData } from '@/lib/validators/session';
 import { formatRelative } from 'date-fns';
+import Link from 'next/link';
+import { useState } from 'react';
+import { fetcher } from '@/lib/utils';
+import { notifications } from '@mantine/notifications';
+import { useRouter } from 'next/router';
 
 export const NewSessionModal = () => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
   const form = useForm({
     initialValues: {
       name: '',
       visibility: 'private',
     },
+    validate: zodResolver(createSessionValidator),
   });
 
-  const onSubmit = (values: typeof form.values) => {
-    console.log(values);
+  const onSubmit = async (values: typeof form.values) => {
+    setLoading(true);
+
+    const newSession = await fetcher('/session', {
+      method: 'POST',
+      data: values,
+    });
+
+    if (newSession.status !== 200) {
+      setLoading(false);
+      return notifications.show({
+        color: 'red',
+        title: 'Oops',
+        message: 'An error occurred while creating the session',
+      });
+    }
+
+    notifications.show({
+      color: 'teal',
+      title: 'Success',
+      message: 'Session created successfully',
+    });
+
+    router.push(`/session/${newSession.data.id}`);
+    modals.close('create-session');
+
+    setLoading(false);
   };
 
   return (
@@ -49,10 +83,12 @@ export const NewSessionModal = () => {
       />
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" color="gray">
+        <Button variant="outline" color="gray" disabled={loading}>
           Cancel
         </Button>
-        <Button>Create</Button>
+        <Button type="submit" loading={loading}>
+          Create
+        </Button>
       </div>
     </form>
   );
@@ -62,10 +98,9 @@ export const AppDashboardContent = () => {
   const { profile } = useSnapshot(userStore);
   const { data: sessions, isLoading } = useSWR<SessionData[]>('/session');
 
-  console.log(sessions);
-
   const openNewModal = () => {
     modals.open({
+      modalId: 'create-session',
       title: 'Create a new session',
       children: <NewSessionModal />,
       centered: true,
@@ -111,7 +146,7 @@ export const AppDashboardContent = () => {
             </Button>
           </section>
 
-          <section className="flex-grow relative">
+          <section className="flex-grow relative flex flex-col gap-2">
             {isLoading && <LoadingOverlay visible loaderProps={{ size: 20 }} />}
             {!isLoading && sessions && sessions.length === 0 && (
               <div className="absolute inset-0 grid place-items-center">
@@ -122,28 +157,30 @@ export const AppDashboardContent = () => {
               sessions &&
               sessions.length > 0 &&
               sessions.map((session) => (
-                <Card withBorder key={session.id}>
-                  <div className="flex justify-between items-center">
-                    <h2 className="font-semibold text-zinc-700 text-lg">
-                      {session.name}
-                    </h2>
+                <Link href={`/session/${session.id}`}>
+                  <Card withBorder key={session.id}>
+                    <div className="flex justify-between items-center">
+                      <h2 className="font-semibold text-zinc-700 text-lg">
+                        {session.name}
+                      </h2>
 
-                    <Avatar.Group spacing="sm">
-                      {Object.values(session.members).map((member) => (
-                        <Avatar
-                          key={member.id}
-                          size="xs"
-                          src={member.profilePict}
-                          alt={member.name}
-                        />
-                      ))}
-                    </Avatar.Group>
-                  </div>
+                      <Avatar.Group spacing="sm">
+                        {Object.values(session.members).map((member) => (
+                          <Avatar
+                            key={member.id}
+                            size="xs"
+                            src={member.profilePict}
+                            alt={member.name}
+                          />
+                        ))}
+                      </Avatar.Group>
+                    </div>
 
-                  <p className="text-sm text-zinc-500">
-                    {formatRelative(new Date(session.createdAt), new Date())}
-                  </p>
-                </Card>
+                    <p className="text-sm text-zinc-500">
+                      {formatRelative(new Date(session.createdAt), new Date())}
+                    </p>
+                  </Card>
+                </Link>
               ))}
           </section>
         </Card>

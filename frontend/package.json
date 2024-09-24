@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
+    "eventemitter3": "^5.0.1",
     "firebase": "^10.13.2",
     "next": "^14.2.13",
     "react": "^18",
