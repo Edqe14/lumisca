@@ -5,6 +5,8 @@ import { authenticated } from './lib/middleware/authenticated';
 import { userRoute } from './routes/user';
 import { sessionRoute } from './routes/session';
 import type { User } from './lib/structures/user';
+import { groupRouter } from './routes/task-group';
+import { taskRouter } from './routes/task';
 
 const app = new Hono();
 
@@ -18,6 +20,8 @@ const api = new Hono();
 
 api.route('/user', userRoute);
 api.route('/session', sessionRoute);
+api.route('/task', taskRouter);
+api.route('/task-groups', groupRouter);
 // end api
 
 app.route('/api', api);

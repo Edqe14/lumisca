@@ -5,12 +5,11 @@ import { createUserValidator, userValidator } from '../validators/user';
 import type { DocumentReference } from 'firebase-admin/firestore';
 import { db } from '../firebase';
 import { BaseStructure, BaseStructureEvents } from './base';
+import { userCache } from '../caches';
 
 export type UserData = z.infer<typeof userValidator>;
 export type CreateUserData = z.infer<typeof createUserValidator>;
 export type UserEvents = BaseStructureEvents & {};
-
-export const userCache = new Map<string, User>();
 
 export class User
   extends (EventEmitter as new () => TypedEmitter<UserEvents>)

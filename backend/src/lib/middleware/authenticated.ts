@@ -1,7 +1,7 @@
 import { MiddlewareHandler } from 'hono';
 import { auth } from '../firebase';
 import type { UserRecord } from 'firebase-admin/auth';
-import { userCache, UserFactory } from '../structures/user';
+import { UserFactory } from '../structures/user';
 
 export const authenticated: MiddlewareHandler = async (c, next) => {
   const token = c.req.header('Authorization')?.split(' ')?.[1];
@@ -14,7 +14,6 @@ export const authenticated: MiddlewareHandler = async (c, next) => {
     const decoded = await auth.verifyIdToken(token, true);
 
     c.user =
-      userCache.get(decoded.uid) ??
       (await UserFactory.get(decoded.uid)) ??
       (await UserFactory.create({
         id: decoded.uid,

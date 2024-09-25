@@ -5,9 +5,6 @@ import {
   sessionMember,
   SessionMemberStateData,
   SessionRTData,
-  sessionRTValidator,
-  sessionValidator,
-  updateSessionStateValidator,
 } from '../validators/session';
 import { db, rtdb } from '../firebase';
 import { EventEmitter } from 'node:events';
@@ -17,8 +14,8 @@ import type { Reference } from 'firebase-admin/database';
 import { Channel } from './channel';
 import { Timers } from './timer';
 import { BaseStructure, BaseStructureEvents } from './base';
+import { sessionCache } from '../caches';
 
-export const sessionCache = new Map<string, Session>();
 export type SessionEvents = BaseStructureEvents & {
   memberAdded: (memberId: string) => void;
   memberRemoved: (memberId: string) => void;
