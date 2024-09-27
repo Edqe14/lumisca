@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { TaskFactory } from '../lib/structures/task';
 import { ZodError } from 'zod';
-import { createTaskValidator } from '../lib/validators/task';
+import { createTaskValidator, taskValidator } from '../lib/validators/task';
 
 const taskRouter = new Hono();
 
@@ -40,11 +40,23 @@ taskRouter
     }
 
     try {
-      const body = await createTaskValidator
-        .pick({ name: true })
+      const body = await taskValidator
+        .pick({ name: true, completedAt: true })
+        .partial()
         .parseAsync(await c.req.json());
 
+      if ('completedAt' in body && task.completedAt !== body.completedAt) {
+        const group = await task.getGroup();
+
+        if (group) {
+          group.totalCompletedTasks += body.completedAt ? 1 : -1;
+          await group.sync();
+        }
+      }
+
       Object.assign(task, body);
+      task.updatedAt = new Date().toISOString();
+
       await task.sync();
 
       return c.json(task);
@@ -68,6 +80,18 @@ taskRouter
 
     if (!task) {
       return c.json({ message: 'Task not found' }, 404);
+    }
+
+    const group = await task.getGroup();
+
+    if (group) {
+      group.totalTasks -= 1;
+
+      if (task.completedAt) {
+        group.totalCompletedTasks -= 1;
+      }
+
+      await group.sync();
     }
 
     await task.delete();

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const taskValidator = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string().describe('Short description of the task'),
   groupId: z.string(),
 
   creator: z.string(),
@@ -36,3 +36,8 @@ export const createTaskValidator = taskValidator.pick({
   creator: true,
   groupId: true,
 });
+
+export type Task = z.infer<typeof taskValidator>;
+export type TaskGroup = z.infer<typeof taskGroupValidator>;
+export type CreateTask = z.infer<typeof createTaskValidator>;
+export type CreateTaskGroup = z.infer<typeof createTaskGroupValidator>;

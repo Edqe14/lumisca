@@ -35,11 +35,17 @@ export class TaskGroup implements BaseStructure, TaskGroupData {
     this.deletedAt = data.deletedAt;
   }
 
-  createTask(data: Pick<CreateTaskData, 'name' | 'creator'>) {
-    return TaskFactory.create({
+  async createTask(data: Pick<CreateTaskData, 'name' | 'creator'>) {
+    const task = await TaskFactory.create({
       ...data,
       groupId: this.id,
     });
+
+    this.totalTasks += 1;
+
+    await this.sync();
+
+    return task;
   }
 
   getTasks() {
@@ -62,7 +68,7 @@ export class TaskGroup implements BaseStructure, TaskGroupData {
 
   async sync() {
     const json = this.toJSON();
-    await this.ref.set(json);
+    await this.ref.set(json, { merge: true });
 
     return true;
   }
@@ -81,7 +87,7 @@ export class TaskGroup implements BaseStructure, TaskGroupData {
     await this.sync();
   }
 
-  toJSON(): TaskGroupData {
+  toJSON() {
     return {
       id: this.id,
       name: this.name,
@@ -91,26 +97,27 @@ export class TaskGroup implements BaseStructure, TaskGroupData {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       deletedAt: this.deletedAt,
-    };
+    } as TaskGroupData;
   }
 }
 
 export class TaskGroupFactory {
   public static ref = db.collection('task-groups');
 
-  public static async create(data: CreateTaskGroupData) {
+  public static async create(
+    data: CreateTaskGroupData & Partial<TaskGroupData>
+  ) {
     const uid = this.ref.doc();
     const finalData: TaskGroupData = {
-      ...data,
       id: uid.id,
 
-      creator: data.creator,
       totalTasks: 0,
       totalCompletedTasks: 0,
 
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       deletedAt: null,
+      ...data,
     };
 
     const ref = this.ref.doc(uid.id);
@@ -144,17 +151,24 @@ export class TaskGroupFactory {
   }
 
   public static async getAll(creator: string) {
-    const query = await this.ref.where('creator', '==', creator).get();
+    return new Promise<TaskGroup[]>(async (resolve, reject) => {
+      this.ref
+        .where('creator', '==', creator)
+        .where('deletedAt', '==', null)
+        .onSnapshot((snap) => {
+          resolve(
+            snap.docs.map((doc) => {
+              const data = doc.data() as TaskGroupData;
 
-    return query.docs.map((doc) => {
-      const data = doc.data() as TaskGroupData;
+              if (taskGroupCache.has(doc.id)) {
+                return taskGroupCache.get(doc.id)!;
+              }
 
-      if (taskGroupCache.has(doc.id)) {
-        return taskGroupCache.get(doc.id)!;
-      }
-
-      const taskGroup = new TaskGroup(data, doc.ref);
-      return taskGroup;
+              const taskGroup = new TaskGroup(data, doc.ref);
+              return taskGroup;
+            })
+          );
+        });
     });
   }
 }

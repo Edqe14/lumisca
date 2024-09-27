@@ -4,9 +4,12 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.3",
+    "@langchain/google-genai": "^0.1.0",
     "firebase-admin": "^12.5.0",
     "hono": "^4.6.2",
     "jose": "^5.9.3",
+    "langchain": "^0.3.2",
     "lodash-es": "^4.17.21",
     "typed-emitter": "^2.1.0",
     "zod": "^3.23.8"

@@ -5,7 +5,8 @@ import {
   createTaskGroupValidator,
   createTaskValidator,
 } from '../lib/validators/task';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
+import { taskStructuredGemini } from '../lib/gemini';
 
 const groupRouter = new Hono();
 
@@ -27,11 +28,31 @@ groupRouter
     try {
       const body = await createTaskGroupValidator
         .pick({ name: true })
+        .extend({ prompt: z.string().max(256).optional() })
         .parseAsync(await c.req.json());
+
       const taskGroup = await TaskGroupFactory.create({
-        ...body,
+        name: body.name,
         creator: c.user.id,
       });
+
+      if (body.prompt) {
+        const prompt =
+          'Generate a roadmap by the user and split it to small tasks: ' +
+          body.prompt.trim();
+        const { tasks } = await taskStructuredGemini.invoke(prompt);
+
+        taskGroup.totalTasks = tasks.length;
+        await taskGroup.sync();
+
+        for (const task of tasks) {
+          await TaskFactory.create({
+            name: task,
+            creator: c.user.id,
+            groupId: taskGroup.id,
+          });
+        }
+      }
 
       return c.json(taskGroup);
     } catch (err) {
@@ -41,6 +62,8 @@ groupRouter
           400
         );
       }
+
+      console.error(err);
 
       return c.json({ message: 'Invalid request body' }, 400);
     }

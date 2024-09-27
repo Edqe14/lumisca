@@ -6,6 +6,7 @@ import {
   Card,
   LoadingOverlay,
   Select,
+  Textarea,
   TextInput,
 } from '@mantine/core';
 import { useSnapshot } from 'valtio';
@@ -13,30 +14,112 @@ import { IconPlus } from '@tabler/icons-react';
 import { modals } from '@mantine/modals';
 import { useForm, zodResolver } from '@mantine/form';
 import useSWR from 'swr';
-import { createSessionValidator, SessionData } from '@/lib/validators/session';
+import {
+  createTaskGroupValidator,
+  type TaskGroup,
+} from '@/lib/validators/task';
+
 import { formatRelative } from 'date-fns';
 import Link from 'next/link';
 import { useState } from 'react';
 import { fetcher } from '@/lib/utils';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/router';
+import { z } from 'zod';
 
-export const NewSessionModal = () => {
+// export const NewSessionModal = () => {
+//   const router = useRouter();
+//   const [loading, setLoading] = useState(false);
+
+//   const form = useForm({
+//     initialValues: {
+//       name: '',
+//       visibility: 'private',
+//     },
+//     validate: zodResolver(createSessionValidator),
+//   });
+
+//   const onSubmit = async (values: typeof form.values) => {
+//     setLoading(true);
+
+//     const newSession = await fetcher('/session', {
+//       method: 'POST',
+//       data: values,
+//     });
+
+//     if (newSession.status !== 200) {
+//       setLoading(false);
+//       return notifications.show({
+//         color: 'red',
+//         title: 'Oops',
+//         message: 'An error occurred while creating the session',
+//       });
+//     }
+
+//     notifications.show({
+//       color: 'teal',
+//       title: 'Success',
+//       message: 'Session created successfully',
+//     });
+
+//     router.push(`/session/${newSession.data.id}`);
+//     modals.close('create-session');
+
+//     setLoading(false);
+//   };
+
+//   return (
+//     <form onSubmit={form.onSubmit(onSubmit)} className="space-y-3">
+//       <TextInput
+//         withAsterisk
+//         label="Name"
+//         key={form.key('name')}
+//         {...form.getInputProps('name')}
+//       />
+
+//       <Select
+//         label="Visibility"
+//         withAsterisk
+//         data={[
+//           { value: 'public', label: 'Public' },
+//           { value: 'private', label: 'Private' },
+//         ]}
+//         key={form.key('visibility')}
+//         {...form.getInputProps('visibility')}
+//       />
+
+//       <div className="flex justify-end gap-2">
+//         <Button variant="outline" color="gray" disabled={loading}>
+//           Cancel
+//         </Button>
+//         <Button type="submit" loading={loading}>
+//           Create
+//         </Button>
+//       </div>
+//     </form>
+//   );
+// };
+
+export const NewRoadmapModal = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   const form = useForm({
     initialValues: {
       name: '',
-      visibility: 'private',
+      prompt: '',
     },
-    validate: zodResolver(createSessionValidator),
+    validate: zodResolver(
+      createTaskGroupValidator
+        .pick({ name: true })
+        .extend({ prompt: z.string().max(256).optional() })
+    ),
   });
 
   const onSubmit = async (values: typeof form.values) => {
     setLoading(true);
 
-    const newSession = await fetcher('/session', {
+    const newSession = await fetcher('/task-groups', {
       method: 'POST',
       data: values,
     });
@@ -46,18 +129,18 @@ export const NewSessionModal = () => {
       return notifications.show({
         color: 'red',
         title: 'Oops',
-        message: 'An error occurred while creating the session',
+        message: 'An error occurred while creating the roadmap',
       });
     }
 
     notifications.show({
       color: 'teal',
       title: 'Success',
-      message: 'Session created successfully',
+      message: 'Roadmap created successfully',
     });
 
-    router.push(`/session/${newSession.data.id}`);
-    modals.close('create-session');
+    router.push(`/roadmap/${newSession.data.id}`);
+    modals.close('create-roadmap');
 
     setLoading(false);
   };
@@ -71,15 +154,11 @@ export const NewSessionModal = () => {
         {...form.getInputProps('name')}
       />
 
-      <Select
-        label="Visibility"
-        withAsterisk
-        data={[
-          { value: 'public', label: 'Public' },
-          { value: 'private', label: 'Private' },
-        ]}
-        key={form.key('visibility')}
-        {...form.getInputProps('visibility')}
+      <Textarea
+        label="Prompt"
+        description="Leave empty if you don't want to bootstrap with AI"
+        key={form.key('prompt')}
+        {...form.getInputProps('prompt')}
       />
 
       <div className="flex justify-end gap-2">
@@ -96,16 +175,17 @@ export const NewSessionModal = () => {
 
 export const AppDashboardContent = () => {
   const { profile } = useSnapshot(userStore);
-  const { data: sessions, isLoading } = useSWR<SessionData[]>('/session');
+  const { data: groups, isLoading } = useSWR<TaskGroup[]>('/task-groups');
 
   const openNewModal = () => {
     modals.open({
-      modalId: 'create-session',
-      title: 'Create a new session',
-      children: <NewSessionModal />,
+      modalId: 'create-roadmap',
+      title: 'Create a new roadmap',
+      children: <NewRoadmapModal />,
       centered: true,
     });
   };
+
   return (
     <section className="flex flex-col gap-2 flex-grow">
       <section className="grid grid-cols-3 gap-2">
@@ -135,7 +215,9 @@ export const AppDashboardContent = () => {
       <section className="grid grid-cols-3 gap-2 flex-grow">
         <Card padding="lg" radius="md" withBorder className="col-span-2 gap-4">
           <section className="flex justify-between">
-            <h1 className="font-bold text-lg text-zinc-700">Your sessions</h1>
+            <h1 className="font-bold text-lg text-zinc-700">
+              Your task roadmaps
+            </h1>
 
             <Button
               size="xs"
@@ -148,40 +230,54 @@ export const AppDashboardContent = () => {
 
           <section className="flex-grow relative flex flex-col gap-2">
             {isLoading && <LoadingOverlay visible loaderProps={{ size: 20 }} />}
-            {!isLoading && sessions && sessions.length === 0 && (
+            {!isLoading && groups && groups.length === 0 && (
               <div className="absolute inset-0 grid place-items-center">
-                <p className="text-zinc-500">No sessions available</p>
+                <p className="text-zinc-500">No roadmap available</p>
               </div>
             )}
             {!isLoading &&
-              sessions &&
-              sessions.length > 0 &&
-              sessions.map((session) => (
-                <Link href={`/session/${session.id}`}>
-                  <Card withBorder key={session.id}>
-                    <div className="flex justify-between items-center">
-                      <h2 className="font-semibold text-zinc-700 text-lg">
-                        {session.name}
-                      </h2>
+              groups &&
+              groups.length > 0 &&
+              groups.map((group) => {
+                const perc =
+                  group.totalCompletedTasks / (group.totalTasks || 1);
 
-                      <Avatar.Group spacing="sm">
-                        {Object.values(session.members).map((member) => (
-                          <Avatar
-                            key={member.id}
-                            size="xs"
-                            src={member.profilePict}
-                            alt={member.name}
-                          />
-                        ))}
-                      </Avatar.Group>
-                    </div>
+                return (
+                  <Link href={`/roadmap/${group.id}`} key={group.id}>
+                    <Card withBorder>
+                      <div className="flex justify-between items-center">
+                        <h2 className="font-semibold text-zinc-700 text-lg">
+                          {group.name}
+                        </h2>
 
-                    <p className="text-sm text-zinc-500">
-                      {formatRelative(new Date(session.createdAt), new Date())}
-                    </p>
-                  </Card>
-                </Link>
-              ))}
+                        <Button
+                          size="compact-xs"
+                          color={
+                            perc === 0 ? 'red' : perc !== 1 ? 'yellow' : 'green'
+                          }
+                        >
+                          {(perc * 100).toFixed(0)}%
+                        </Button>
+
+                        {/* <Avatar.Group spacing="sm">
+                          {Object.values(session.members).map((member) => (
+                            <Avatar
+                              key={member.id}
+                              size="xs"
+                              src={member.profilePict}
+                              alt={member.name}
+                            />
+                          ))}
+                        </Avatar.Group> */}
+                      </div>
+
+                      <p className="text-sm text-zinc-500">
+                        {formatRelative(new Date(group.createdAt), new Date())}
+                      </p>
+                    </Card>
+                  </Link>
+                );
+              })}
           </section>
         </Card>
 

@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { BaseStructure } from './base';
 import { createTaskValidator, taskValidator } from '../validators/task';
 import { taskCache } from '../caches';
+import { TaskGroupFactory } from './task-group';
 
 export type TaskData = z.infer<typeof taskValidator>;
 export type CreateTaskData = z.infer<typeof createTaskValidator>;
@@ -30,6 +31,12 @@ export class Task implements BaseStructure, TaskData {
     this.completedAt = data.completedAt;
   }
 
+  async getGroup() {
+    const group = await TaskGroupFactory.get(this.groupId);
+
+    return group;
+  }
+
   async pull() {
     const doc = await this.ref.get();
 
@@ -46,7 +53,7 @@ export class Task implements BaseStructure, TaskData {
 
   async sync() {
     const json = this.toJSON();
-    await this.ref.set(json);
+    await this.ref.set(json, { merge: true });
 
     return true;
   }
@@ -58,7 +65,7 @@ export class Task implements BaseStructure, TaskData {
     await this.sync();
   }
 
-  toJSON(): TaskData {
+  toJSON() {
     return {
       id: this.id,
       name: this.name,
@@ -68,7 +75,7 @@ export class Task implements BaseStructure, TaskData {
       updatedAt: this.updatedAt,
       deletedAt: this.deletedAt,
       completedAt: this.completedAt,
-    };
+    } as TaskData;
   }
 }
 
@@ -115,15 +122,21 @@ export class TaskFactory {
     return task;
   }
 
-  static async getAll(groupId: string) {
-    const tasks = await this.ref
-      .where('groupId', '==', groupId)
-      .where('deletedAt', '==', null)
-      .get();
+  static getAll(groupId: string) {
+    return new Promise<Task[]>(async (resolve, reject) => {
+      this.ref
+        .where('groupId', '==', groupId)
+        .where('deletedAt', '==', null)
+        .orderBy('completedAt', 'asc')
+        .orderBy('createdAt', 'asc')
+        .onSnapshot((snap) => {
+          const tasks = snap.docs.map((doc) => {
+            const data = doc.data() as TaskData;
+            return new Task(data, doc.ref);
+          });
 
-    return tasks.docs.map((doc) => {
-      const data = doc.data() as TaskData;
-      return new Task(data, doc.ref);
+          resolve(tasks);
+        });
     });
   }
 }
