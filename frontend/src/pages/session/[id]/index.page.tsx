@@ -26,6 +26,7 @@ function SessionPage() {
 
       sessionStore.id = sid as string;
       sessionStore.session = session;
+      session.listen();
     });
 
     return () => {

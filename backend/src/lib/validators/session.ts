@@ -32,6 +32,7 @@ export const sessionValidator = z.object({
   timerState: z.enum(['running', 'paused', 'stopped']),
   visibility: z.enum(['public', 'private']),
   creator: z.string(),
+  joinCode: z.string().nullable(),
 
   activeCount: z.number(),
   breakCount: z.number(),
@@ -51,17 +52,15 @@ export const sessionRTValidator = sessionValidator
     id: true,
     status: true,
     timerState: true,
-    creator: true,
 
     activeCount: true,
     breakCount: true,
     longBreakCount: true,
-
     createdAt: true,
     deletedAt: true,
   })
   .extend({
-    nextSectionEndAt: z.number().nullable(),
+    timeLeft: z.number().describe('In seconds'),
     memberStates: z.record(z.string(), sessionMemberRTState),
   });
 

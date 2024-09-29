@@ -15,11 +15,16 @@ import { Channel } from './channel';
 import { Timers } from './timer';
 import { BaseStructure, BaseStructureEvents } from './base';
 import { sessionCache } from '../caches';
+import { generateDigits } from '../utils';
 
 export type SessionEvents = BaseStructureEvents & {
   memberAdded: (memberId: string) => void;
   memberRemoved: (memberId: string) => void;
   updateMemberState: (id: string, state: SessionMemberStateData) => void;
+
+  timerStarted: () => void;
+  timerEnded: () => void;
+  timerPaused: () => void;
 };
 
 export class Session
@@ -28,7 +33,7 @@ export class Session
 {
   public static STATUS_ACTIVE = 'active' as const;
   public static STATUS_BREAK = 'break' as const;
-  public static STATUS_LONG_BREAK = 'long_break' as const;
+  public static STATUS_LONG_BREAK = 'long-break' as const;
   public static STATUS_FINISHED = 'finished' as const;
 
   id: string;
@@ -39,6 +44,7 @@ export class Session
   creator: string;
   members: SessionData['members'];
   memberCount: number;
+  joinCode: string | null;
 
   activeCount: number;
   breakCount: number;
@@ -53,6 +59,7 @@ export class Session
   realtime: SessionRTData | null;
   channel: Channel;
   autoDestructTimeout: NodeJS.Timer | null = null;
+  timerCounterStopper: (() => void) | null = null;
 
   public constructor(
     data: SessionData,
@@ -70,6 +77,7 @@ export class Session
     this.creator = data.creator;
     this.members = data.members;
     this.memberCount = data.memberCount;
+    this.joinCode = data.joinCode;
 
     this.activeCount = data.activeCount;
     this.breakCount = data.breakCount;
@@ -82,6 +90,7 @@ export class Session
 
     this.realtime = realtimeData;
     this.channel = new Channel(this.id);
+    this.timerCounterStopper = null;
 
     this.hookEvents();
   }
@@ -131,6 +140,10 @@ export class Session
       if (this.memberCount === 0) {
         this.primeSelfDestruct();
       }
+    });
+
+    this.on('timerEnded', () => {
+      this.startTimer();
     });
 
     // cleanup
@@ -233,12 +246,17 @@ export class Session
 
     if (this.realtime) {
       Object.assign(this.realtime, {
+        id: this.id,
         activeCount: this.activeCount,
         breakCount: this.breakCount,
         longBreakCount: this.longBreakCount,
+        timeLeft: this.realtime.timeLeft,
         status: this.status,
         timerState: this.timerState,
-      } satisfies Partial<SessionRTData>);
+        memberStates: this.realtime.memberStates ?? {},
+        createdAt: this.createdAt,
+        deletedAt: this.deletedAt ?? null,
+      } satisfies SessionRTData);
 
       tasks.push(this.rtdbRef.set(this.realtime));
     }
@@ -265,6 +283,70 @@ export class Session
     this.emit('delete');
   }
 
+  async handleTimerTick(timeLeft: number) {
+    this.realtime!.timeLeft = timeLeft;
+
+    if (timeLeft <= 0) {
+      this.timerState = 'stopped';
+      this.timerCounterStopper = null;
+
+      if (this.status === Session.STATUS_ACTIVE) {
+        this.activeCount++;
+      } else if (this.status === Session.STATUS_BREAK) {
+        this.breakCount++;
+      } else if (this.status === Session.STATUS_LONG_BREAK) {
+        this.longBreakCount++;
+      }
+
+      if (
+        this.activeCount % 4 === 0 &&
+        this.status !== Session.STATUS_LONG_BREAK
+      ) {
+        // should long break
+        this.status = Session.STATUS_LONG_BREAK;
+        this.realtime!.timeLeft = Timers.POMODORO_LONG_BREAK / 1000;
+      } else {
+        if (this.status === Session.STATUS_ACTIVE) {
+          this.status = Session.STATUS_BREAK;
+          this.realtime!.timeLeft = Timers.POMODORO_SHORT_BREAK / 1000;
+        } else {
+          this.status = Session.STATUS_ACTIVE;
+          this.realtime!.timeLeft = Timers.POMODORO_WORK / 1000;
+        }
+      }
+
+      await this.sync();
+
+      return this.emit('timerEnded');
+    }
+
+    await this.sync();
+  }
+
+  public async startTimer() {
+    if (this.timerState === 'running') return;
+
+    this.timerState = 'running';
+    await this.sync();
+
+    this.timerCounterStopper = Timers.countDown(
+      this.id + '-timer',
+      this.realtime?.timeLeft ?? Timers.POMODORO_TIME_MAP[this.status],
+      this.handleTimerTick.bind(this)
+    );
+  }
+
+  public async pauseTimer() {
+    if (this.timerState === 'paused') return;
+
+    this.timerState = 'paused';
+    await this.sync();
+
+    this.timerCounterStopper?.();
+
+    this.emit('timerPaused');
+  }
+
   public toJSON() {
     return {
       id: this.id,
@@ -273,6 +355,7 @@ export class Session
       timerState: this.timerState,
       visibility: this.visibility,
       creator: this.creator,
+      joinCode: this.joinCode,
       activeCount: this.activeCount,
       breakCount: this.breakCount,
       longBreakCount: this.longBreakCount,
@@ -290,29 +373,32 @@ export class SessionFactory {
   public static collection = db.collection('sessions');
   public static ref = rtdb.ref('sessions');
 
-  public static async getAll(userId: string, onlyDeleted = false) {
-    const snapshot = await this.collection
-      .where(
-        Filter.or(
-          Filter.where('creator', '==', userId),
-          Filter.where(`members.${userId}.id`, '==', userId)
+  public static getAll(userId: string, onlyDeleted = false) {
+    return new Promise<Session[]>(async (resolve, reject) => {
+      this.collection
+        .where(
+          Filter.or(
+            Filter.where('creator', '==', userId),
+            Filter.where(`members.${userId}.id`, '==', userId)
+          )
         )
-      )
-      .where('deletedAt', onlyDeleted ? '!=' : '==', null)
-      .orderBy('createdAt', 'desc')
-      .get();
+        .where('deletedAt', onlyDeleted ? '!=' : '==', null)
+        .where('finishedAt', '==', null)
+        .orderBy('createdAt', 'desc')
+        .onSnapshot((snapshot) => {
+          resolve(
+            snapshot.docs.map((doc) => {
+              const data = doc.data() as SessionData;
 
-    const sessions = snapshot.docs.map((doc) => {
-      const data = doc.data() as SessionData;
+              if (sessionCache.has(data.id)) {
+                return sessionCache.get(data.id)!;
+              }
 
-      if (sessionCache.has(data.id)) {
-        return sessionCache.get(data.id)!;
-      }
-
-      return new Session(data, null, doc.ref, this.ref.child(data.id));
+              return new Session(data, null, doc.ref, this.ref.child(data.id));
+            })
+          );
+        });
     });
-
-    return sessions;
   }
 
   public static async getAllPublic() {
@@ -379,6 +465,7 @@ export class SessionFactory {
       timerState: 'stopped',
       visibility,
       creator,
+      joinCode: generateDigits(6).toString(),
 
       activeCount: 0,
       breakCount: 0,
@@ -393,7 +480,6 @@ export class SessionFactory {
     };
 
     const rtData: SessionRTData = {
-      creator,
       id: sessionData.id,
       status: sessionData.status,
       timerState: sessionData.timerState,
@@ -405,7 +491,7 @@ export class SessionFactory {
       longBreakCount: sessionData.longBreakCount,
 
       memberStates: {},
-      nextSectionEndAt: null,
+      timeLeft: Timers.POMODORO_WORK / 1000,
     };
 
     const session = new Session(

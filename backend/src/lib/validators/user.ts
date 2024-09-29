@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { SessionData } from './session';
 
 export const userValidator = z.object({
   id: z.string(),

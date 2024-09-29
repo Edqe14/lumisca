@@ -2,8 +2,26 @@ import { proxy } from 'valtio';
 import { EventEmitter } from 'eventemitter3';
 import { fetcher } from '../utils';
 import { SessionData, SessionRTData } from '../validators/session';
+import {
+  onValue,
+  ref,
+  Unsubscribe,
+  type DatabaseReference,
+} from 'firebase/database';
+import { rtdb } from '../firebase';
 
 type SessionType = {};
+
+export let rtRef: DatabaseReference | null = null;
+export const sessionStore = proxy({
+  id: null as string | null,
+  session: null as Session | null,
+
+  timeLeft: 0,
+  status: 'active' as SessionData['status'],
+  timerState: 'stopped' as SessionData['timerState'],
+  memberStates: {} as SessionRTData['memberStates'],
+});
 
 export class Session extends EventEmitter<SessionType> implements SessionData {
   id: string;
@@ -14,6 +32,7 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
   creator: string;
   members: SessionData['members'];
   memberCount: number;
+  joinCode: string | null;
 
   activeCount: number;
   breakCount: number;
@@ -25,6 +44,8 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
   deletedAt: string | null;
 
   // realtime data
+  private rtUnsub: Unsubscribe | null = null;
+
   realtime: SessionRTData | null = null;
 
   constructor(data: SessionData) {
@@ -38,6 +59,7 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
     this.creator = data.creator;
     this.members = data.members;
     this.memberCount = data.memberCount;
+    this.joinCode = data.joinCode;
 
     this.activeCount = data.activeCount;
     this.breakCount = data.breakCount;
@@ -48,12 +70,39 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
     this.finishedAt = data.finishedAt;
     this.deletedAt = data.deletedAt;
   }
-}
 
-export const sessionStore = proxy({
-  id: null as string | null,
-  session: null as Session | null,
-});
+  async listen() {
+    if (rtRef) {
+      this.rtUnsub = onValue(rtRef, (snapshot) => {
+        const data = snapshot.val() as SessionRTData;
+        this.realtime = data;
+
+        sessionStore.timerState = data.timerState;
+        sessionStore.status = data.status;
+        sessionStore.timeLeft = data.timeLeft;
+        sessionStore.memberStates = data.memberStates;
+      });
+    }
+  }
+
+  async stop() {
+    if (rtRef) {
+      this.rtUnsub?.();
+    }
+  }
+
+  async startTimer() {
+    await fetcher(`/session/${this.id}/start`, {
+      method: 'PUT',
+    });
+  }
+
+  async pauseTimer() {
+    await fetcher(`/session/${this.id}/pause`, {
+      method: 'PUT',
+    });
+  }
+}
 
 export const fetchSession = async (
   id: string,
@@ -69,6 +118,7 @@ export const fetchSession = async (
 
   const data = res.data;
   const session = new Session(data);
+  rtRef = ref(rtdb, `sessions/${data.id}`);
 
   return session;
 };

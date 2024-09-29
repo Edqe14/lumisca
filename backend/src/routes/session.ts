@@ -173,6 +173,36 @@ sessionIdRoute
     } catch {
       return c.json({ message: 'Invalid request body' }, 400);
     }
+  })
+  .put('/start', async (c) => {
+    if (!c.user) {
+      return c.json({ message: 'Unauthorized' }, 401);
+    }
+
+    const session = await SessionFactory.get(c.req.param('id'));
+
+    if (!session) {
+      return c.json({ message: 'Session not found' }, 404);
+    }
+
+    await session.startTimer();
+
+    return c.json({ message: 'Timer started' });
+  })
+  .put('/pause', async (c) => {
+    if (!c.user) {
+      return c.json({ message: 'Unauthorized' }, 401);
+    }
+
+    const session = await SessionFactory.get(c.req.param('id'));
+
+    if (!session) {
+      return c.json({ message: 'Session not found' }, 404);
+    }
+
+    await session.pauseTimer();
+
+    return c.json({ message: 'Timer started' });
   });
 
 sessionRoute.route('/', sessionIdRoute);

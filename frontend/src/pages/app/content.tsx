@@ -4,7 +4,9 @@ import {
   Avatar,
   Button,
   Card,
+  InputLabel,
   LoadingOverlay,
+  PinInput,
   Select,
   Textarea,
   TextInput,
@@ -19,86 +21,90 @@ import {
   type TaskGroup,
 } from '@/lib/validators/task';
 
-import { formatRelative } from 'date-fns';
+import { differenceInMilliseconds, formatRelative } from 'date-fns';
 import Link from 'next/link';
 import { useState } from 'react';
-import { fetcher } from '@/lib/utils';
+import { cn, fetcher, getStatusColor, toDurationReadable } from '@/lib/utils';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/router';
 import { z } from 'zod';
+import {
+  createSessionValidator,
+  type SessionData,
+} from '@/lib/validators/session';
 
-// export const NewSessionModal = () => {
-//   const router = useRouter();
-//   const [loading, setLoading] = useState(false);
+export const NewSessionModal = () => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-//   const form = useForm({
-//     initialValues: {
-//       name: '',
-//       visibility: 'private',
-//     },
-//     validate: zodResolver(createSessionValidator),
-//   });
+  const form = useForm({
+    initialValues: {
+      name: '',
+      visibility: 'private',
+    },
+    validate: zodResolver(createSessionValidator),
+  });
 
-//   const onSubmit = async (values: typeof form.values) => {
-//     setLoading(true);
+  const onSubmit = async (values: typeof form.values) => {
+    setLoading(true);
 
-//     const newSession = await fetcher('/session', {
-//       method: 'POST',
-//       data: values,
-//     });
+    const newSession = await fetcher('/session', {
+      method: 'POST',
+      data: values,
+    });
 
-//     if (newSession.status !== 200) {
-//       setLoading(false);
-//       return notifications.show({
-//         color: 'red',
-//         title: 'Oops',
-//         message: 'An error occurred while creating the session',
-//       });
-//     }
+    if (newSession.status !== 200) {
+      setLoading(false);
+      return notifications.show({
+        color: 'red',
+        title: 'Oops',
+        message: 'An error occurred while creating the session',
+      });
+    }
 
-//     notifications.show({
-//       color: 'teal',
-//       title: 'Success',
-//       message: 'Session created successfully',
-//     });
+    notifications.show({
+      color: 'teal',
+      title: 'Success',
+      message: 'Session created successfully',
+    });
 
-//     router.push(`/session/${newSession.data.id}`);
-//     modals.close('create-session');
+    router.push(`/session/${newSession.data.id}`);
+    modals.close('create-session');
 
-//     setLoading(false);
-//   };
+    setLoading(false);
+  };
 
-//   return (
-//     <form onSubmit={form.onSubmit(onSubmit)} className="space-y-3">
-//       <TextInput
-//         withAsterisk
-//         label="Name"
-//         key={form.key('name')}
-//         {...form.getInputProps('name')}
-//       />
+  return (
+    <form onSubmit={form.onSubmit(onSubmit)} className="space-y-3">
+      <TextInput
+        withAsterisk
+        label="Name"
+        key={form.key('name')}
+        {...form.getInputProps('name')}
+      />
 
-//       <Select
-//         label="Visibility"
-//         withAsterisk
-//         data={[
-//           { value: 'public', label: 'Public' },
-//           { value: 'private', label: 'Private' },
-//         ]}
-//         key={form.key('visibility')}
-//         {...form.getInputProps('visibility')}
-//       />
+      <Select
+        label="Visibility"
+        withAsterisk
+        data={[
+          { value: 'public', label: 'Public' },
+          { value: 'private', label: 'Private' },
+        ]}
+        key={form.key('visibility')}
+        {...form.getInputProps('visibility')}
+      />
 
-//       <div className="flex justify-end gap-2">
-//         <Button variant="outline" color="gray" disabled={loading}>
-//           Cancel
-//         </Button>
-//         <Button type="submit" loading={loading}>
-//           Create
-//         </Button>
-//       </div>
-//     </form>
-//   );
-// };
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" color="gray" disabled={loading}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={loading}>
+          Create
+        </Button>
+      </div>
+    </form>
+  );
+};
 
 export const NewRoadmapModal = () => {
   const router = useRouter();
@@ -173,9 +179,61 @@ export const NewRoadmapModal = () => {
   );
 };
 
+export const JoinSessionModal = () => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const form = useForm({
+    initialValues: {
+      pin: '',
+    },
+    validate: zodResolver(
+      z.object({
+        pin: z.string().min(6).max(6),
+      })
+    ),
+  });
+
+  const onSubmit = async (values: typeof form.values) => {
+    console.log(values);
+  };
+
+  return (
+    <form onSubmit={form.onSubmit(onSubmit)} className="space-y-3">
+      <div className="pb-4">
+        <InputLabel className="mb-2" required>
+          Join code
+        </InputLabel>
+        <PinInput
+          className="justify-center"
+          length={6}
+          type="number"
+          key={form.key('pin')}
+          {...form.getInputProps('pin')}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" color="gray" disabled={loading}>
+          Cancel
+        </Button>
+        <Button type="submit" loading={loading}>
+          Join
+        </Button>
+      </div>
+    </form>
+  );
+};
+
 export const AppDashboardContent = () => {
+  const router = useRouter();
   const { profile } = useSnapshot(userStore);
   const { data: groups, isLoading } = useSWR<TaskGroup[]>('/task-groups');
+  const { data: sessions, isLoading: isLoadingSessions } =
+    useSWR<SessionData[]>('/session');
+
+  const session = sessions?.[0];
+  const statusColor = session ? getStatusColor(session.status) : null;
 
   const openNewModal = () => {
     modals.open({
@@ -183,6 +241,25 @@ export const AppDashboardContent = () => {
       title: 'Create a new roadmap',
       children: <NewRoadmapModal />,
       centered: true,
+    });
+  };
+
+  const openCreateSessionModal = () => {
+    modals.open({
+      modalId: 'create-session',
+      title: 'Create a new session',
+      children: <NewSessionModal />,
+      centered: true,
+    });
+  };
+
+  const openJoinSessionModal = () => {
+    modals.open({
+      modalId: 'join-session',
+      title: 'Join a session',
+      children: <JoinSessionModal />,
+      centered: true,
+      size: 'sm',
     });
   };
 
@@ -258,17 +335,6 @@ export const AppDashboardContent = () => {
                         >
                           {(perc * 100).toFixed(0)}%
                         </Button>
-
-                        {/* <Avatar.Group spacing="sm">
-                          {Object.values(session.members).map((member) => (
-                            <Avatar
-                              key={member.id}
-                              size="xs"
-                              src={member.profilePict}
-                              alt={member.name}
-                            />
-                          ))}
-                        </Avatar.Group> */}
                       </div>
 
                       <p className="text-sm text-zinc-500">
@@ -282,6 +348,89 @@ export const AppDashboardContent = () => {
         </Card>
 
         <Card padding="lg" radius="md" withBorder>
+          <Card.Section>
+            <div className="aspect-video relative w-full border-b">
+              {isLoadingSessions && (
+                <LoadingOverlay visible loaderProps={{ size: 20 }} />
+              )}
+
+              {!isLoadingSessions && !session && (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <p className="text-zinc-500">No active session</p>
+
+                  <div className="mt-4 flex items-center">
+                    <Button variant="subtle" onClick={openCreateSessionModal}>
+                      Create
+                    </Button>
+
+                    <p className="text-zinc-400 text-sm">or</p>
+
+                    <Button variant="subtle" onClick={openJoinSessionModal}>
+                      Join
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!isLoadingSessions && session && (
+                <div
+                  className={cn(
+                    'flex flex-col items-center justify-center h-full',
+                    statusColor?.background
+                  )}
+                >
+                  <h1
+                    className={cn(
+                      'font-bold text-2xl',
+                      statusColor?.text ?? 'text-zinc-700'
+                    )}
+                  >
+                    {session.name}
+                  </h1>
+
+                  <Avatar.Group spacing="sm">
+                    {Object.values(session.members).map((member) => (
+                      <Avatar
+                        key={member.id}
+                        size="xs"
+                        src={member.profilePict}
+                        alt={member.name}
+                      />
+                    ))}
+                  </Avatar.Group>
+
+                  <p
+                    className={cn(
+                      'text-sm',
+                      statusColor?.text ?? 'text-zinc-500'
+                    )}
+                  >
+                    {session.status === 'active'
+                      ? 'In progress for ' +
+                        toDurationReadable(
+                          differenceInMilliseconds(
+                            new Date(),
+                            new Date(session.createdAt)
+                          )
+                        )
+                      : 'Finished'}
+                  </p>
+
+                  {session.status === 'active' && (
+                    <Button
+                      onClick={() => router.push(`/session/${session.id}`)}
+                      size="xs"
+                      variant="subtle"
+                      className="mt-4"
+                    >
+                      Join
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card.Section>
+
           <h1 className="font-bold text-lg text-zinc-700 pb-1">TODO</h1>
         </Card>
       </section>
