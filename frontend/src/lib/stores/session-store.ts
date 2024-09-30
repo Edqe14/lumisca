@@ -21,6 +21,7 @@ export const sessionStore = proxy({
   status: 'active' as SessionData['status'],
   timerState: 'stopped' as SessionData['timerState'],
   memberStates: {} as SessionRTData['memberStates'],
+  members: {} as SessionData['members'],
 });
 
 export class Session extends EventEmitter<SessionType> implements SessionData {
@@ -100,6 +101,20 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
   async pauseTimer() {
     await fetcher(`/session/${this.id}/pause`, {
       method: 'PUT',
+    });
+  }
+
+  async join() {
+    const res = await fetcher(`/session/${this.id}/join`, {
+      method: 'POST',
+    });
+
+    return res.data.token;
+  }
+
+  async leave() {
+    await fetcher(`/session/${this.id}/leave`, {
+      method: 'POST',
     });
   }
 }

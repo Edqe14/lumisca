@@ -8,6 +8,8 @@ import {
 } from '@tabler/icons-react';
 import { useSnapshot } from 'valtio';
 import { Roadmaps } from './roadmaps';
+import { SessionCall } from './session-call';
+import React from 'react';
 
 export const PomodoroTimer = () => {
   const { profile } = useSnapshot(userStore);
@@ -62,9 +64,7 @@ export const PomodoroTimer = () => {
 export const SessionDataContent = () => {
   return (
     <>
-      <Card withBorder className="col-span-2">
-        jaowhdnuad
-      </Card>
+      <SessionCall />
 
       <div className="flex flex-col gap-2">
         <PomodoroTimer />

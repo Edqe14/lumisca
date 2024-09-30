@@ -5,6 +5,7 @@ import {
 } from '../lib/validators/session';
 import { SessionFactory } from '../lib/structures/session';
 import { ZodError } from 'zod';
+import { Experience } from '../lib/structures/experience';
 
 const sessionRoute = new Hono();
 
@@ -132,6 +133,9 @@ sessionIdRoute
       name: c.user.name,
       profilePict: c.user.profilePict ?? null,
     });
+
+    // give member experience
+    c.user.grantExperience(Experience.XP_JOIN_SESSION);
 
     return c.json({ message: 'Joined the session', token });
   })

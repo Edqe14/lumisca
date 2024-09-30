@@ -13,6 +13,8 @@ export const sessionMember = z.object({
 
 export const sessionMemberRTState = z.object({
   id: z.string(),
+  name: z.string(),
+  profilePict: z.string().nullable(),
   isSpeaking: z.boolean(),
   isMuted: z.boolean(),
   isDeafened: z.boolean(),

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { TaskFactory } from '../lib/structures/task';
 import { ZodError } from 'zod';
 import { createTaskValidator, taskValidator } from '../lib/validators/task';
+import { Experience } from '../lib/structures/experience';
 
 const taskRouter = new Hono();
 
@@ -52,6 +53,8 @@ taskRouter
           group.totalCompletedTasks += body.completedAt ? 1 : -1;
           await group.sync();
         }
+
+        await c.user.grantExperience(Experience.XP_TASK_COMPLETED);
       }
 
       Object.assign(task, body);

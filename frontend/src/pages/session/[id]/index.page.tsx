@@ -3,14 +3,18 @@ import { withAuthenticated } from '@/components/authenticated';
 import { SessionDataContent } from './content';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
-import { fetchSession, sessionStore } from '@/lib/stores/session-store';
+import {
+  fetchSession,
+  Session,
+  sessionStore,
+} from '@/lib/stores/session-store';
 import { useSnapshot } from 'valtio';
 import { LoadingOverlay } from '@mantine/core';
 
 function SessionPage() {
   const router = useRouter();
   const sid = router.query.id;
-  const { id } = useSnapshot(sessionStore);
+  const { id, session } = useSnapshot(sessionStore);
 
   useEffect(() => {
     if (!sid) {
@@ -19,18 +23,28 @@ function SessionPage() {
     }
 
     const abortController = new AbortController();
-    fetchSession(sid as string, abortController).then((session) => {
-      if (!session) {
-        return router.push('/app');
-      }
+    let sess: Session | null = null;
 
-      sessionStore.id = sid as string;
-      sessionStore.session = session;
-      session.listen();
-    });
+    fetchSession(sid as string, abortController)
+      .then(async (session) => {
+        if (!session) {
+          return router.push('/app');
+        }
+
+        await session.listen();
+        await session.join();
+        sessionStore.id = sid as string;
+        sessionStore.session = session;
+        sess = session;
+      })
+      .catch(() => {
+        router.push('/app');
+      });
 
     return () => {
       abortController.abort();
+      sess?.stop();
+      sess?.leave();
     };
   }, [sid]);
 

@@ -6,6 +6,7 @@ import type { DocumentReference } from 'firebase-admin/firestore';
 import { db } from '../firebase';
 import { BaseStructure, BaseStructureEvents } from './base';
 import { userCache } from '../caches';
+import { calculateXP } from '../utils';
 
 export type UserData = z.infer<typeof userValidator>;
 export type CreateUserData = z.infer<typeof createUserValidator>;
@@ -48,6 +49,19 @@ export class User
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
     this.deletedAt = data.deletedAt;
+  }
+
+  async grantExperience(amount: number) {
+    // base + 10% of xp required
+    const xpRequired = calculateXP(this.level) - this.experience;
+    this.experience += Math.round(amount + xpRequired * 0.1);
+
+    while (this.experience >= calculateXP(this.level)) {
+      this.experience -= calculateXP(this.level);
+      this.level++;
+    }
+
+    await this.sync();
   }
 
   async pull() {

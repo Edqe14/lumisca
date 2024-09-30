@@ -358,7 +358,7 @@ export const AppDashboardContent = () => {
                 <div className="flex flex-col items-center justify-center h-full">
                   <p className="text-zinc-500">No active session</p>
 
-                  <div className="mt-4 flex items-center">
+                  <div className="mt-1 flex items-center">
                     <Button variant="subtle" onClick={openCreateSessionModal}>
                       Create
                     </Button>
@@ -422,6 +422,7 @@ export const AppDashboardContent = () => {
                       size="xs"
                       variant="subtle"
                       className="mt-4"
+                      color="white"
                     >
                       Join
                     </Button>

@@ -53,6 +53,10 @@ export const toDurationTime = (duration: number) => {
   return `${pad(interval.minutes ?? 0)}:${pad(interval.seconds ?? 0)}`;
 };
 
+export const calculateXP = (level: number) => {
+  return Math.floor((level / 0.3) ** 2);
+};
+
 export const getStatusColor = (
   status: SessionData['status'],
   timerState?: SessionData['timerState']

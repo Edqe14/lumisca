@@ -16,6 +16,9 @@ import { Timers } from './timer';
 import { BaseStructure, BaseStructureEvents } from './base';
 import { sessionCache } from '../caches';
 import { generateDigits } from '../utils';
+import { map } from 'lodash-es';
+import { UserFactory } from './user';
+import { Experience } from './experience';
 
 export type SessionEvents = BaseStructureEvents & {
   memberAdded: (memberId: string) => void;
@@ -142,7 +145,52 @@ export class Session
       }
     });
 
-    this.on('timerEnded', () => {
+    this.on('timerEnded', async () => {
+      let xp =
+        this.status === Session.STATUS_ACTIVE
+          ? Experience.XP_WORK
+          : Experience.XP_BREAK;
+
+      if (this.status === Session.STATUS_ACTIVE) {
+        this.activeCount++;
+      } else if (this.status === Session.STATUS_BREAK) {
+        this.breakCount++;
+      } else if (this.status === Session.STATUS_LONG_BREAK) {
+        this.longBreakCount++;
+      }
+
+      if (
+        this.activeCount % 4 === 0 &&
+        this.status !== Session.STATUS_LONG_BREAK
+      ) {
+        // should long break
+        this.status = Session.STATUS_LONG_BREAK;
+        this.realtime!.timeLeft = Timers.POMODORO_LONG_BREAK / 1000;
+      } else {
+        if (this.status === Session.STATUS_ACTIVE) {
+          this.status = Session.STATUS_BREAK;
+          this.realtime!.timeLeft = Timers.POMODORO_SHORT_BREAK / 1000;
+        } else {
+          this.status = Session.STATUS_ACTIVE;
+          this.realtime!.timeLeft = Timers.POMODORO_WORK / 1000;
+        }
+      }
+
+      await this.sync();
+
+      // give users xp
+      const memberIds = map(this.realtime?.memberStates ?? {}, 'id');
+
+      for (const memberId of memberIds) {
+        const user = await UserFactory.get(memberId);
+
+        if (user) {
+          await user.grantExperience(xp);
+          await user.sync();
+        }
+      }
+
+      // automatically start next session
       this.startTimer();
     });
 
@@ -174,6 +222,8 @@ export class Session
     if (this.realtime) {
       this.realtime.memberStates[memberId] = {
         id: memberId,
+        name: memberData.name,
+        profilePict: memberData.profilePict,
         isSpeaking: false,
         // NOTE: by default muted
         isMuted: true,
@@ -290,33 +340,6 @@ export class Session
       this.timerState = 'stopped';
       this.timerCounterStopper = null;
 
-      if (this.status === Session.STATUS_ACTIVE) {
-        this.activeCount++;
-      } else if (this.status === Session.STATUS_BREAK) {
-        this.breakCount++;
-      } else if (this.status === Session.STATUS_LONG_BREAK) {
-        this.longBreakCount++;
-      }
-
-      if (
-        this.activeCount % 4 === 0 &&
-        this.status !== Session.STATUS_LONG_BREAK
-      ) {
-        // should long break
-        this.status = Session.STATUS_LONG_BREAK;
-        this.realtime!.timeLeft = Timers.POMODORO_LONG_BREAK / 1000;
-      } else {
-        if (this.status === Session.STATUS_ACTIVE) {
-          this.status = Session.STATUS_BREAK;
-          this.realtime!.timeLeft = Timers.POMODORO_SHORT_BREAK / 1000;
-        } else {
-          this.status = Session.STATUS_ACTIVE;
-          this.realtime!.timeLeft = Timers.POMODORO_WORK / 1000;
-        }
-      }
-
-      await this.sync();
-
       return this.emit('timerEnded');
     }
 
@@ -423,7 +446,13 @@ export class SessionFactory {
 
   public static async get(id: string) {
     if (sessionCache.has(id)) {
-      return sessionCache.get(id);
+      const session = sessionCache.get(id)!;
+
+      if (session.deletedAt) {
+        return null;
+      }
+
+      return session;
     }
 
     const doc = await this.collection.doc(id).get();
@@ -438,10 +467,6 @@ export class SessionFactory {
 
     if (data.deletedAt) {
       return null;
-    }
-
-    if (sessionCache.has(data.id)) {
-      return sessionCache.get(data.id);
     }
 
     const session = new Session(data, rtdbData, doc.ref, rtdbDoc.ref);
