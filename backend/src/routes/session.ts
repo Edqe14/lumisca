@@ -23,6 +23,25 @@ sessionRoute
 
     return c.json(session);
   })
+  .get('/resolve', async (c) => {
+    if (!c.user) {
+      return c.json({ message: 'Unauthorized' }, 401);
+    }
+
+    const pin = c.req.query('pin');
+
+    if (!pin) {
+      return c.json({ message: 'Invalid data ' }, 422);
+    }
+
+    const session = await SessionFactory.resolve(pin);
+
+    if (!session) {
+      return c.json({ message: 'Session not found' }, 404);
+    }
+
+    return c.json(session);
+  })
   .post('/', async (c) => {
     if (!c.user) {
       return c.json({ message: 'Unauthorized' }, 401);

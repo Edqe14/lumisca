@@ -195,7 +195,22 @@ export const JoinSessionModal = () => {
   });
 
   const onSubmit = async (values: typeof form.values) => {
-    console.log(values);
+    const res = await fetcher('/session/resolve', {
+      params: { pin: values.pin },
+    }).catch(() => null);
+
+    if (!res || res.status !== 200) {
+      return notifications.show({
+        color: 'red',
+        title: 'Oops',
+        message: "Can't find the session with the provided code",
+      });
+    }
+
+    const id = res.data.id;
+
+    modals.close('join-session');
+    router.push(`/session/${id}`);
   };
 
   return (

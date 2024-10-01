@@ -99,13 +99,19 @@ export class Session
   }
 
   private primeSelfDestruct() {
+    if (this.autoDestructTimeout !== null) {
+      this.defuseSelfDestruct();
+    }
+
+    console.log('prime');
     this.autoDestructTimeout = setTimeout(async () => {
       this.delete();
     }, Timers.ONE_MINUTE * 5);
   }
 
   private defuseSelfDestruct() {
-    if (this.autoDestructTimeout) {
+    console.log('defuse');
+    if (this.autoDestructTimeout !== null) {
       clearTimeout(this.autoDestructTimeout);
       this.autoDestructTimeout = null;
     }
@@ -136,10 +142,12 @@ export class Session
     });
 
     this.on('memberAdded', async () => {
+      console.log('member added');
       this.defuseSelfDestruct();
     });
 
     this.on('memberRemoved', async () => {
+      console.log('member leaved');
       if (this.memberCount === 0) {
         this.primeSelfDestruct();
       }
@@ -453,11 +461,32 @@ export class SessionFactory {
     return sessions;
   }
 
+  public static async resolve(pin: string) {
+    const snapshot = await this.collection
+      .where('joinCode', '==', pin)
+      .where('deletedAt', '==', null)
+      .where('finishedAt', '==', null)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    const data = doc.data() as SessionData;
+
+    if (sessionCache.has(data.id)) {
+      return sessionCache.get(data.id)!;
+    }
+
+    return new Session(data, null, doc.ref, this.ref.child(data.id));
+  }
+
   public static async get(id: string) {
     if (sessionCache.has(id)) {
       const session = sessionCache.get(id)!;
 
-      if (session.deletedAt) {
+      if (session.deletedAt || session.finishedAt) {
         return null;
       }
 

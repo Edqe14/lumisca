@@ -57,10 +57,13 @@ function SessionPage() {
     return () => {
       abortController.abort();
       sess?.reset();
+      sess?.leave();
     };
   }, [sid]);
 
   if (!id || !callRoomId || !callToken || !profile) return null;
+
+  console.log(callToken);
 
   return (
     <Layout className="relative px-4 sm:px-12 md:px-24 lg:px-48 xl:px-64 grid grid-cols-3 gap-2">
@@ -73,6 +76,7 @@ function SessionPage() {
             webcamEnabled: false,
             name: profile.name,
             debugMode: false,
+            participantId: profile.id,
           }}
           token={callToken}
         >

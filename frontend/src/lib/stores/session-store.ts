@@ -150,6 +150,7 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
     if (!sessionStore.callState) return;
 
     Object.assign(sessionStore.callState, state(sessionStore.callState));
+    sessionStore.callState = sessionStore.callState;
 
     await fetcher(`/session/${this.id}/updateState`, {
       method: 'PUT',

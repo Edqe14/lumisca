@@ -6,13 +6,11 @@ import { MantineProvider } from '@mantine/core';
 import { Navbar } from '@/components/navbar';
 import { ModalsProvider } from '@mantine/modals';
 import type { AppProps } from 'next/app';
-import { Inter } from 'next/font/google';
 import { SWRConfig } from 'swr';
 import Head from 'next/head';
 import { fetcher } from '@/lib/utils';
 import { Notifications } from '@mantine/notifications';
-
-const inter = Inter({ subsets: ['latin'] });
+import React from 'react';
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -21,10 +19,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <title>Lumisca</title>
       </Head>
 
-      <main
-        className={`${inter.className} min-h-svh flex flex-col`}
-        suppressHydrationWarning
-      >
+      <main className={`min-h-svh flex flex-col`} suppressHydrationWarning>
         <SWRConfig
           value={{
             fetcher: (resource, init) =>

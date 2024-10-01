@@ -43,26 +43,10 @@ export class Channel {
       headers,
       body: JSON.stringify({
         customRoomId: this.id,
-        autoCloseConfig: {
-          type: 'session-end-and-deactivate',
-          duration: 60 * 5, // 5 minutes
-        },
       }),
     });
 
     if (!res.ok) {
-      console.error(
-        await res.text(),
-        `${BASE_URL}/rooms`,
-        headers,
-        JSON.stringify({
-          customRoomId: this.id,
-          autoCloseConfig: {
-            type: 'session-end-and-deactivate',
-            duration: 60 * 5, // 5 minutes
-          },
-        })
-      );
       throw new Error('Failed to create room');
     }
 
