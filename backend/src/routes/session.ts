@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import {
   createSessionValidator,
+  SessionMemberRTState,
   updateSessionStateValidator,
 } from '../lib/validators/session';
 import { SessionFactory } from '../lib/structures/session';
@@ -128,7 +129,8 @@ sessionIdRoute
       c.user.id,
       session.creator === c.user.id
     );
-    await session.addMember(c.user.id, {
+
+    const addMember = await session.addMember(c.user.id, {
       id: c.user.id,
       name: c.user.name,
       profilePict: c.user.profilePict ?? null,
@@ -137,7 +139,12 @@ sessionIdRoute
     // give member experience
     c.user.grantExperience(Experience.XP_JOIN_SESSION);
 
-    return c.json({ message: 'Joined the session', token });
+    return c.json({
+      message: 'Joined the session',
+      token,
+      roomId: session.channel.roomId,
+      state: addMember?.state,
+    });
   })
   .post('/leave', async (c) => {
     if (!c.user) {

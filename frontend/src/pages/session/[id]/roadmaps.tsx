@@ -18,6 +18,7 @@ import { IconChevronLeft, IconPlus, IconTrash } from '@tabler/icons-react';
 import { formatRelative } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import React from 'react';
 import { useEffect, useState } from 'react';
 import useSWR, { mutate } from 'swr';
 import { useSnapshot } from 'valtio';
@@ -256,6 +257,7 @@ export const RoadmapSelector = ({
 
             return (
               <Card
+                key={group.id}
                 withBorder
                 className="cursor-pointer"
                 onClick={() => setRoadmap(group.id)}

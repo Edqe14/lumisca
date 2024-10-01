@@ -21,6 +21,7 @@ export const sessionMemberRTState = z.object({
   isConnected: z.boolean(),
   isScreenSharing: z.boolean(),
   isHandRaised: z.boolean(),
+  isCamEnabled: z.boolean(),
 });
 
 export const updateSessionStateValidator = sessionMemberRTState.omit({
@@ -77,3 +78,4 @@ export type SessionRTData = z.infer<typeof sessionRTValidator>;
 export type SessionMemberStateData = z.infer<
   typeof updateSessionStateValidator
 >;
+export type SessionMemberRTState = z.infer<typeof sessionMemberRTState>;

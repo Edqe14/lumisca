@@ -1,7 +1,11 @@
 import { proxy } from 'valtio';
 import { EventEmitter } from 'eventemitter3';
 import { fetcher } from '../utils';
-import { SessionData, SessionRTData } from '../validators/session';
+import {
+  SessionData,
+  SessionMemberRTState,
+  SessionRTData,
+} from '../validators/session';
 import {
   onValue,
   ref,
@@ -9,6 +13,7 @@ import {
   type DatabaseReference,
 } from 'firebase/database';
 import { rtdb } from '../firebase';
+import { SessionRT } from '../types';
 
 type SessionType = {};
 
@@ -22,6 +27,12 @@ export const sessionStore = proxy({
   timerState: 'stopped' as SessionData['timerState'],
   memberStates: {} as SessionRTData['memberStates'],
   members: {} as SessionData['members'],
+
+  // VIDEOSDK states
+  callRoomId: null as string | null,
+  callToken: null as string | null,
+  callState: null as SessionMemberRTState | null,
+  callStatus: 'IDLE' as 'IDLE' | 'JOINING' | 'JOINED',
 });
 
 export class Session extends EventEmitter<SessionType> implements SessionData {
@@ -109,12 +120,40 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
       method: 'POST',
     });
 
-    return res.data.token;
+    sessionStore.callToken = res.data.token as string;
+    sessionStore.callState = res.data.state as SessionMemberRTState;
+    sessionStore.callRoomId = res.data.roomId as string;
+
+    return res.data.token as string;
   }
 
   async leave() {
     await fetcher(`/session/${this.id}/leave`, {
       method: 'POST',
+    });
+  }
+
+  async reset() {
+    await Promise.all([this.leave(), this.stop()]);
+
+    sessionStore.id = null;
+    sessionStore.session = null;
+    sessionStore.timeLeft = 0;
+    sessionStore.callToken = null;
+    sessionStore.callState = null;
+    sessionStore.callStatus = 'IDLE';
+  }
+
+  async updateState(
+    state: (data: SessionMemberRTState) => Partial<SessionMemberRTState>
+  ) {
+    if (!sessionStore.callState) return;
+
+    Object.assign(sessionStore.callState, state(sessionStore.callState));
+
+    await fetcher(`/session/${this.id}/updateState`, {
+      method: 'PUT',
+      data: sessionStore.callState,
     });
   }
 }

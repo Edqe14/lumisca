@@ -10,11 +10,24 @@ import {
 } from '@/lib/stores/session-store';
 import { useSnapshot } from 'valtio';
 import { LoadingOverlay } from '@mantine/core';
+import { userStore } from '@/lib/stores/user-store';
+import dynamic from 'next/dynamic';
+
+const MeetingProvider = dynamic(
+  () =>
+    import('@videosdk.live/react-sdk').then((mod) => ({
+      default: mod.MeetingProvider,
+    })),
+  {
+    ssr: false,
+  }
+);
 
 function SessionPage() {
   const router = useRouter();
   const sid = router.query.id;
-  const { id, session } = useSnapshot(sessionStore);
+  const { profile } = useSnapshot(userStore);
+  const { id, callRoomId, callToken } = useSnapshot(sessionStore);
 
   useEffect(() => {
     if (!sid) {
@@ -33,8 +46,8 @@ function SessionPage() {
 
         await session.listen();
         await session.join();
-        sessionStore.id = sid as string;
         sessionStore.session = session;
+        sessionStore.id = sid as string;
         sess = session;
       })
       .catch(() => {
@@ -43,15 +56,29 @@ function SessionPage() {
 
     return () => {
       abortController.abort();
-      sess?.stop();
-      sess?.leave();
+      sess?.reset();
     };
   }, [sid]);
+
+  if (!id || !callRoomId || !callToken || !profile) return null;
 
   return (
     <Layout className="relative px-4 sm:px-12 md:px-24 lg:px-48 xl:px-64 grid grid-cols-3 gap-2">
       {!id && <LoadingOverlay visible loaderProps={{ size: 20 }} />}
-      {id && <SessionDataContent />}
+      {id && callRoomId && callToken && (
+        <MeetingProvider
+          config={{
+            meetingId: callRoomId,
+            micEnabled: false,
+            webcamEnabled: false,
+            name: profile.name,
+            debugMode: false,
+          }}
+          token={callToken}
+        >
+          <SessionDataContent />
+        </MeetingProvider>
+      )}
     </Layout>
   );
 }

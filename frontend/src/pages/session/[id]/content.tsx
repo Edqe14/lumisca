@@ -9,6 +9,7 @@ import {
 import { useSnapshot } from 'valtio';
 import { Roadmaps } from './roadmaps';
 import { SessionCall } from './session-call';
+import { MeetingProvider } from '@videosdk.live/react-sdk';
 import React from 'react';
 
 export const PomodoroTimer = () => {
@@ -62,6 +63,11 @@ export const PomodoroTimer = () => {
 };
 
 export const SessionDataContent = () => {
+  const { callToken, session, callRoomId } = useSnapshot(sessionStore);
+  const { profile } = useSnapshot(userStore);
+
+  if (!session || !callToken || !profile || !callRoomId) return null;
+
   return (
     <>
       <SessionCall />

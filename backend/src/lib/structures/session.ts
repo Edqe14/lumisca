@@ -115,7 +115,7 @@ export class Session
     this.on('created', async () => {
       if (this.deletedAt) return;
 
-      // this.primeSelfDestruct();
+      this.primeSelfDestruct();
     });
 
     const memberStates = this.rtdbRef.child('memberStates');
@@ -220,17 +220,22 @@ export class Session
 
     // reset member state anyway
     if (this.realtime) {
+      if (!this.realtime.memberStates) {
+        this.realtime.memberStates = {};
+      }
+
       this.realtime.memberStates[memberId] = {
         id: memberId,
         name: memberData.name,
-        profilePict: memberData.profilePict,
+        profilePict: memberData.profilePict ?? null,
         isSpeaking: false,
         // NOTE: by default muted
         isMuted: true,
         isDeafened: false,
-        isConnected: false,
+        isConnected: true,
         isScreenSharing: false,
         isHandRaised: false,
+        isCamEnabled: false,
       };
     }
 
@@ -238,7 +243,10 @@ export class Session
 
     this.emit('memberAdded', memberId);
 
-    return this.members[memberId];
+    return {
+      member: this.members[memberId],
+      state: this.realtime?.memberStates[memberId],
+    } as const;
   }
 
   public async removeMember(memberId: string) {
@@ -329,6 +337,7 @@ export class Session
     }
 
     await this.sync();
+    await this.channel.deactivate();
 
     this.emit('delete');
   }

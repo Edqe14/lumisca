@@ -4,11 +4,11 @@ const KEY = process.env.VIDEOSDK_API_KEY!;
 const SECRET = new TextEncoder().encode(process.env.VIDEOSDK_API_SECRET!);
 
 const ADMIN_TOKEN = await new SignJWT({
-  apiKey: KEY,
+  apikey: KEY,
   permissions: ['allow_join', 'allow_mod'],
+  version: 2,
 })
   .setProtectedHeader({ alg: 'HS256' })
-  .setAudience('lumisca-session-u')
   .setExpirationTime('1y')
   .sign(SECRET);
 
@@ -21,6 +21,7 @@ const headers = {
 // videosdk
 export class Channel {
   id: string;
+  roomId: string | null = null;
   isCreated = false;
   isActive = false;
 
@@ -29,10 +30,9 @@ export class Channel {
   }
 
   public async ensureRoom() {
-    // FIXME: skip room for now
-    // if (!this.isCreated) {
-    //   await this.createRoom();
-    // }
+    if (!this.isCreated) {
+      await this.createRoom();
+    }
 
     return this;
   }
@@ -51,9 +51,24 @@ export class Channel {
     });
 
     if (!res.ok) {
+      console.error(
+        await res.text(),
+        `${BASE_URL}/rooms`,
+        headers,
+        JSON.stringify({
+          customRoomId: this.id,
+          autoCloseConfig: {
+            type: 'session-end-and-deactivate',
+            duration: 60 * 5, // 5 minutes
+          },
+        })
+      );
       throw new Error('Failed to create room');
     }
 
+    const json = await res.json();
+
+    this.roomId = json.roomId;
     this.isCreated = true;
     this.isActive = true;
 
@@ -82,14 +97,11 @@ export class Channel {
 
   public async generateUserToken(userId: string, canJoinImmediately = false) {
     const token = await new SignJWT({
-      apiKey: KEY,
-      permissions: canJoinImmediately ? ['allow_join'] : ['ask_join'],
+      apikey: KEY,
+      permissions: ['allow_join'],
       version: 2,
-      roomId: this.id,
-      participantId: userId,
     })
       .setProtectedHeader({ alg: 'HS256' })
-      .setAudience('lumisca-session-u')
       .setExpirationTime('1d')
       .sign(SECRET);
 
