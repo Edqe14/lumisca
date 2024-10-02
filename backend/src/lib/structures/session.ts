@@ -434,7 +434,16 @@ export class SessionFactory {
                 return sessionCache.get(data.id)!;
               }
 
-              return new Session(data, null, doc.ref, this.ref.child(data.id));
+              const session = new Session(
+                data,
+                null,
+                doc.ref,
+                this.ref.child(data.id)
+              );
+
+              sessionCache.set(data.id, session);
+
+              return session;
             })
           );
         });

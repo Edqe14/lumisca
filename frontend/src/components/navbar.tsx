@@ -1,11 +1,13 @@
 'use client';
 
-import { userStore } from '@/lib/stores/user-store';
+import { fetchProfile, userStore } from '@/lib/stores/user-store';
 import Link from 'next/link';
 import { useSnapshot } from 'valtio';
 import { Layout } from './layout';
 import { InputLabel, Menu, Progress } from '@mantine/core';
 import { calculateXP } from '@/lib/utils';
+import { IconCoinFilled, IconDoorExit } from '@tabler/icons-react';
+import { logout } from '@/lib/firebase';
 
 export const Navbar = () => {
   const { profile } = useSnapshot(userStore);
@@ -18,7 +20,12 @@ export const Navbar = () => {
         </Link>
 
         {profile && (
-          <Menu offset={12} width={250} position="bottom-end">
+          <Menu
+            offset={12}
+            width={250}
+            position="bottom-end"
+            onOpen={() => fetchProfile()}
+          >
             <Menu.Target>
               <img
                 className="h-8 w-8 rounded-full cursor-pointer"
@@ -30,9 +37,15 @@ export const Navbar = () => {
             </Menu.Target>
 
             <Menu.Dropdown>
-              <Menu.Label className="flex flex-col gap-1">
-                <p className="text-sm text-zinc-600">
-                  Level <span className="font-semibold">{profile.level}</span>
+              <Menu.Label className="flex flex-col gap-1 mb-2">
+                <p className="text-sm text-zinc-600 flex justify-between items-center">
+                  <span>
+                    Level <span className="font-semibold">{profile.level}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {profile.points}{' '}
+                    <IconCoinFilled size={20} className="text-yellow-500" />
+                  </span>
                 </p>
                 <Progress.Root size={20} className="mb-1">
                   <Progress.Section
@@ -51,6 +64,16 @@ export const Navbar = () => {
                   </Progress.Section>
                 </Progress.Root>
               </Menu.Label>
+
+              <Menu.Divider />
+
+              <Menu.Item
+                rightSection={<IconDoorExit size={16} />}
+                color="red"
+                onClick={logout}
+              >
+                Logout
+              </Menu.Item>
             </Menu.Dropdown>
           </Menu>
         )}

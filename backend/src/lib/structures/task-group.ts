@@ -165,6 +165,9 @@ export class TaskGroupFactory {
               }
 
               const taskGroup = new TaskGroup(data, doc.ref);
+
+              taskGroupCache.set(doc.id, taskGroup);
+
               return taskGroup;
             })
           );

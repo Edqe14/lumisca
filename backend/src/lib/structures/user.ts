@@ -25,7 +25,7 @@ export class User
   level: number;
   experience: number;
   points: number;
-  achivements: string[];
+  achivements: Record<string, Date>;
   sessionsFinished: number;
 
   createdAt: string;
@@ -56,10 +56,38 @@ export class User
     const xpRequired = calculateXP(this.level) - this.experience;
     this.experience += Math.round(amount + xpRequired * 0.1);
 
+    let points = Math.floor(amount / 5);
+
     while (this.experience >= calculateXP(this.level)) {
       this.experience -= calculateXP(this.level);
       this.level++;
+
+      points += 30;
     }
+
+    this.points += points;
+
+    await this.sync();
+  }
+
+  async grantAchievement(name: string | string[]) {
+    if (!Array.isArray(name)) {
+      name = [name];
+    }
+
+    if (name.length === 0) return;
+
+    if (!this.achivements) {
+      this.achivements = {};
+    }
+
+    name.forEach((n) => {
+      if (this.achivements[n]) {
+        return;
+      }
+
+      this.achivements[n] = new Date();
+    });
 
     await this.sync();
   }
@@ -146,7 +174,7 @@ export class UserFactory {
       level: 1,
       experience: 0,
       points: 0,
-      achivements: [],
+      achivements: {},
       sessionsFinished: 0,
 
       createdAt: new Date().toISOString(),

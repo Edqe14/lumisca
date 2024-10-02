@@ -1,13 +1,23 @@
 import { sessionStore } from '@/lib/stores/session-store';
 import { cn } from '@/lib/utils';
 import type { SessionMemberRTState } from '@/lib/validators/session';
-import { ActionIcon, Card, CardSection, LoadingOverlay } from '@mantine/core';
+import {
+  ActionIcon,
+  Button,
+  Card,
+  CardSection,
+  CopyButton,
+  Input,
+  LoadingOverlay,
+  TextInput,
+} from '@mantine/core';
 import {
   IconCamera,
   IconCameraOff,
   IconDoorExit,
   IconMicrophone,
   IconMicrophoneOff,
+  IconUserPlus,
 } from '@tabler/icons-react';
 import { useMeeting, useParticipant } from '@videosdk.live/react-sdk';
 import { useRouter } from 'next/router';
@@ -18,6 +28,7 @@ import React from 'react';
 import { Participant } from '@videosdk.live/react-sdk/dist/types/participant';
 import { userStore } from '@/lib/stores/user-store';
 import { MicVAD } from '@ricky0123/vad-web';
+import { modals } from '@mantine/modals';
 
 const ParticipantCell = ({
   id,
@@ -148,9 +159,26 @@ const ParticipantCell = ({
   );
 };
 
+const ShareModal = ({ pin }: { pin: string }) => {
+  return (
+    <div className="space-y-2">
+      <TextInput label="Pin" value={pin} />
+
+      <div className="flex justify-end">
+        <CopyButton value={pin}>
+          {({ copy, copied }) => (
+            <Button onClick={() => copy()}>{copied ? 'Copied' : 'Copy'}</Button>
+          )}
+        </CopyButton>
+      </div>
+    </div>
+  );
+};
+
 const CallControls = () => {
   const router = useRouter();
   const { session, callState } = useSnapshot(sessionStore);
+  const { profile } = useSnapshot(userStore);
   const { leave, toggleMic, toggleWebcam, toggleScreenShare } = useMeeting();
 
   if (!session) return null;
@@ -175,11 +203,30 @@ const CallControls = () => {
     toggleWebcam();
   };
 
+  const openShareModal = () => {
+    modals.open({
+      title: 'Invite Members',
+      children: <ShareModal pin={session.joinCode!} />,
+      centered: true,
+    });
+  };
+
   return (
     <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
       <ActionIcon color="red" size="xl" variant="light" onClick={leaveCall}>
         <IconDoorExit size={24} />
       </ActionIcon>
+
+      {profile?.id === session.creator && (
+        <ActionIcon
+          color="blue"
+          variant="light"
+          onClick={openShareModal}
+          size="xl"
+        >
+          <IconUserPlus size={24} />
+        </ActionIcon>
+      )}
 
       <ActionIcon
         color="dark"
@@ -211,7 +258,7 @@ const CallControls = () => {
 };
 
 export const SessionCall = () => {
-  const { profile } = useSnapshot(userStore);
+  const router = useRouter();
   const { memberStates, session, callStatus, callToken } =
     useSnapshot(sessionStore);
   const { join, participants } = useMeeting({
@@ -220,6 +267,8 @@ export const SessionCall = () => {
     },
     onMeetingLeft: () => {
       session?.reset();
+      sessionStore.callStatus = 'IDLE';
+      router.push('/app');
     },
   });
 

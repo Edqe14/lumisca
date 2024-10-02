@@ -7,6 +7,7 @@ import {
 } from '../lib/validators/task';
 import { z, ZodError } from 'zod';
 import { taskStructuredGemini } from '../lib/gemini';
+import { AchivementRegistry } from '../lib/structures/achivement';
 
 const groupRouter = new Hono();
 
@@ -53,6 +54,8 @@ groupRouter
           });
         }
       }
+
+      await AchivementRegistry.trigger({ user: c.user, taskGroup });
 
       return c.json(taskGroup);
     } catch (err) {

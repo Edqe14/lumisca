@@ -3,6 +3,7 @@ import { TaskFactory } from '../lib/structures/task';
 import { ZodError } from 'zod';
 import { createTaskValidator, taskValidator } from '../lib/validators/task';
 import { Experience } from '../lib/structures/experience';
+import { AchivementRegistry } from '../lib/structures/achivement';
 
 const taskRouter = new Hono();
 
@@ -61,6 +62,8 @@ taskRouter
       task.updatedAt = new Date().toISOString();
 
       await task.sync();
+
+      await AchivementRegistry.trigger({ user: c.user, task });
 
       return c.json(task);
     } catch (err) {

@@ -7,6 +7,9 @@ import {
   SessionRTData,
 } from '../validators/session';
 import {
+  child,
+  OnDisconnect,
+  onDisconnect,
   onValue,
   ref,
   Unsubscribe,
@@ -57,6 +60,7 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
 
   // realtime data
   private rtUnsub: Unsubscribe | null = null;
+  private disconnectHandler: OnDisconnect | null = null;
 
   realtime: SessionRTData | null = null;
 
@@ -94,12 +98,21 @@ export class Session extends EventEmitter<SessionType> implements SessionData {
         sessionStore.timeLeft = data.timeLeft;
         sessionStore.memberStates = data.memberStates;
       });
+
+      // this.disconnectHandler = onDisconnect(
+      //   child(rtRef, `memberStates/${sessionStore.id}`)
+      // );
+      // this.disconnectHandler.remove();
     }
   }
 
   async stop() {
     if (rtRef) {
       this.rtUnsub?.();
+    }
+
+    if (this.disconnectHandler) {
+      this.disconnectHandler.cancel();
     }
   }
 

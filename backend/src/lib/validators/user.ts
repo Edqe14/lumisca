@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { SessionData } from './session';
 
 export const userValidator = z.object({
   id: z.string(),
@@ -11,7 +10,7 @@ export const userValidator = z.object({
   level: z.number(),
   experience: z.number(),
   points: z.number(),
-  achivements: z.array(z.string()),
+  achivements: z.record(z.string(), z.string()),
   sessionsFinished: z.number(),
 
   createdAt: z.string(),
@@ -25,3 +24,5 @@ export const createUserValidator = userValidator.pick({
   email: true,
   profilePict: true,
 });
+
+export type Profile = z.infer<typeof userValidator>;

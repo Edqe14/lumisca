@@ -32,6 +32,7 @@ import {
   createSessionValidator,
   type SessionData,
 } from '@/lib/validators/session';
+import { Achivements } from './achivements';
 
 export const NewSessionModal = () => {
   const router = useRouter();
@@ -447,7 +448,7 @@ export const AppDashboardContent = () => {
             </div>
           </Card.Section>
 
-          <h1 className="font-bold text-lg text-zinc-700 pb-1">TODO</h1>
+          <Achivements />
         </Card>
       </section>
     </section>

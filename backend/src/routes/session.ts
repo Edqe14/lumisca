@@ -7,6 +7,7 @@ import {
 import { SessionFactory } from '../lib/structures/session';
 import { ZodError } from 'zod';
 import { Experience } from '../lib/structures/experience';
+import { AchivementRegistry } from '../lib/structures/achivement';
 
 const sessionRoute = new Hono();
 
@@ -54,6 +55,8 @@ sessionRoute
         ...body,
         creator: c.user.id,
       });
+
+      await AchivementRegistry.trigger({ user: c.user, session: newSession });
 
       return c.json(newSession);
     } catch (err) {

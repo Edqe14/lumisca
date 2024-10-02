@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { auth, db } from '../lib/firebase';
 import { UserData } from '../lib/structures/user';
+import { AchivementRegistry } from '../lib/structures/achivement';
 
 const userRoute = new Hono();
 
@@ -23,6 +24,8 @@ userRoute.get('/me', async (c) => {
     Object.assign(c.user, data);
     await c.user.sync();
   }
+
+  AchivementRegistry.trigger({ user: c.user }, true);
 
   return c.json(c.user);
 });

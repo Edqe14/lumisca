@@ -3,7 +3,7 @@ import { auth, persistence } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { noop } from '@mantine/core';
 import { fetcher } from '../utils';
-import { Profile } from '../types';
+import type { Profile } from '../validators/user';
 
 export const userStore = proxy({
   loading: true,
@@ -22,6 +22,10 @@ const validateToken = async () => {
   }
 
   return me.data as Profile;
+};
+
+export const fetchProfile = async () => {
+  userStore.profile = await validateToken();
 };
 
 const autoFetchToken = () => {

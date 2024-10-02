@@ -63,8 +63,6 @@ function SessionPage() {
 
   if (!id || !callRoomId || !callToken || !profile) return null;
 
-  console.log(callToken);
-
   return (
     <Layout className="relative px-4 sm:px-12 md:px-24 lg:px-48 xl:px-64 grid grid-cols-3 gap-2">
       {!id && <LoadingOverlay visible loaderProps={{ size: 20 }} />}
