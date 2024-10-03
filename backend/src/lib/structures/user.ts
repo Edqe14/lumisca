@@ -25,7 +25,7 @@ export class User
   level: number;
   experience: number;
   points: number;
-  achivements: Record<string, Date>;
+  achivements: Record<string, string>;
   sessionsFinished: number;
 
   createdAt: string;
@@ -86,7 +86,7 @@ export class User
         return;
       }
 
-      this.achivements[n] = new Date();
+      this.achivements[n] = new Date().toISOString();
     });
 
     await this.sync();
